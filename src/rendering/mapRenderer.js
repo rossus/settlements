@@ -113,21 +113,11 @@ class MapRenderer {
         // Get all water-land borders
         const borders = this.grid.getWaterLandBorders();
 
-        // Draw each border
-        borders.forEach(border => {
-            // Calculate the shared edge between the two hexes
-            const sharedEdge = this.calculateSharedEdge(border.hex1, border.hex2, offsetX, offsetY);
-
-            if (sharedEdge) {
-                // Draw thick sand line on this shared edge
-                ctx.beginPath();
-                ctx.moveTo(sharedEdge.corner1.x, sharedEdge.corner1.y);
-                ctx.lineTo(sharedEdge.corner2.x, sharedEdge.corner2.y);
-                ctx.strokeStyle = Terrain.Colors.SAND_BORDER;
-                ctx.lineWidth = 6;
-                ctx.lineCap = 'round';
-                ctx.stroke();
-            }
+        // Render using generic border renderer
+        this.renderBorders(ctx, offsetX, offsetY, borders, {
+            strokeStyle: Terrain.Colors.SAND_BORDER,
+            lineWidth: 6,
+            lineCap: 'round'
         });
     }
 
@@ -140,45 +130,89 @@ class MapRenderer {
      * @param {string} terrainType - Terrain type to highlight
      */
     renderTerrainHighlight(ctx, offsetX, offsetY, terrainType) {
-        // Get all hexes of the specified terrain type
-        const targetHexes = [];
+        // Get all borders for this terrain type
+        const borders = this.getBordersForTerrain(terrainType);
+
+        // Render using generic border renderer
+        this.renderBorders(ctx, offsetX, offsetY, borders, {
+            strokeStyle: '#e74c3c',
+            lineWidth: 4,
+            lineCap: 'round'
+        });
+    }
+
+    /**
+     * Get all borders for a specific terrain type
+     * Returns borders where the hex is the target type and neighbor is different or doesn't exist
+     *
+     * @param {string} terrainType - Terrain type to get borders for
+     * @returns {Array<{hex1: Hex, hex2: Hex|null, edgeIndex: number}>} Border data
+     */
+    getBordersForTerrain(terrainType) {
+        const borders = [];
+        const neighborDirections = HexMath.getNeighborDirections();
+
+        // For each hex of the target terrain type
         this.grid.hexes.forEach(hex => {
             if (hex.type === terrainType) {
-                targetHexes.push(hex);
+                // Check all 6 neighbors
+                for (let i = 0; i < 6; i++) {
+                    const dir = neighborDirections[i];
+                    const neighborQ = hex.q + dir.q;
+                    const neighborR = hex.r + dir.r;
+                    const neighbor = this.grid.getHex(neighborQ, neighborR);
+
+                    // Add border if:
+                    // 1. No neighbor exists (map edge), OR
+                    // 2. Neighbor is different terrain type
+                    if (!neighbor || neighbor.type !== terrainType) {
+                        borders.push({
+                            hex1: hex,
+                            hex2: neighbor, // null for map edges
+                            edgeIndex: i    // which edge (0-5)
+                        });
+                    }
+                }
             }
         });
 
-        // Get neighbor directions from HexMath
-        const neighborDirections = HexMath.getNeighborDirections();
+        return borders;
+    }
 
-        // Draw red borders around all edges of these hexes
-        targetHexes.forEach(hex => {
-            const pixel = this.grid.hexToPixel(hex);
-            const centerX = pixel.x + offsetX;
-            const centerY = pixel.y + offsetY;
-            const corners = this.grid.getHexCorners(centerX, centerY);
+    /**
+     * Generic border renderer - draws borders between hex pairs using geometric calculation
+     *
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} offsetX - X offset
+     * @param {number} offsetY - Y offset
+     * @param {Array<{hex1: Hex, hex2: Hex|null, edgeIndex: number}>} borders - Border data
+     * @param {Object} style - Style object {strokeStyle, lineWidth, lineCap}
+     */
+    renderBorders(ctx, offsetX, offsetY, borders, style) {
+        borders.forEach(border => {
+            let sharedEdge;
 
-            // Check all 6 potential neighbors
-            for (let i = 0; i < 6; i++) {
-                const dir = neighborDirections[i];
-                const neighborQ = hex.q + dir.q;
-                const neighborR = hex.r + dir.r;
-                const neighbor = this.grid.getHex(neighborQ, neighborR);
+            if (border.hex2) {
+                // Border between two hexes - use geometric calculation (robust, works always)
+                sharedEdge = this.calculateSharedEdge(border.hex1, border.hex2, offsetX, offsetY);
+            } else {
+                // Map edge - use edge index (safe since there's only one hex)
+                const pixel = this.grid.hexToPixel(border.hex1);
+                const centerX = pixel.x + offsetX;
+                const centerY = pixel.y + offsetY;
+                const corners = this.grid.getHexCorners(centerX, centerY);
+                sharedEdge = this.getEdgeCorners(corners, border.edgeIndex);
+            }
 
-                const edgeCorners = this.getEdgeCorners(corners, i);
-
-                // Draw red border if:
-                // 1. No neighbor exists (map edge), OR
-                // 2. Neighbor is different terrain type
-                if (!neighbor || neighbor.type !== terrainType) {
-                    ctx.beginPath();
-                    ctx.moveTo(edgeCorners.corner1.x, edgeCorners.corner1.y);
-                    ctx.lineTo(edgeCorners.corner2.x, edgeCorners.corner2.y);
-                    ctx.strokeStyle = '#e74c3c';
-                    ctx.lineWidth = 4;
-                    ctx.lineCap = 'round';
-                    ctx.stroke();
-                }
+            if (sharedEdge) {
+                // Draw border with provided style
+                ctx.beginPath();
+                ctx.moveTo(sharedEdge.corner1.x, sharedEdge.corner1.y);
+                ctx.lineTo(sharedEdge.corner2.x, sharedEdge.corner2.y);
+                ctx.strokeStyle = style.strokeStyle;
+                ctx.lineWidth = style.lineWidth;
+                ctx.lineCap = style.lineCap || 'butt';
+                ctx.stroke();
             }
         });
     }
