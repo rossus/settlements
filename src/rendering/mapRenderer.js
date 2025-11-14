@@ -148,6 +148,9 @@ class MapRenderer {
             }
         });
 
+        // Get neighbor directions from HexMath
+        const neighborDirections = HexMath.getNeighborDirections();
+
         // Draw red borders around all edges of these hexes
         targetHexes.forEach(hex => {
             const pixel = this.grid.hexToPixel(hex);
@@ -155,12 +158,13 @@ class MapRenderer {
             const centerY = pixel.y + offsetY;
             const corners = this.grid.getHexCorners(centerX, centerY);
 
-            // Get all 6 neighbors
-            const neighbors = this.grid.getNeighbors(hex);
-
-            // Draw each edge
+            // Check all 6 potential neighbors
             for (let i = 0; i < 6; i++) {
-                const neighbor = neighbors[i];
+                const dir = neighborDirections[i];
+                const neighborQ = hex.q + dir.q;
+                const neighborR = hex.r + dir.r;
+                const neighbor = this.grid.getHex(neighborQ, neighborR);
+
                 const edgeCorners = this.getEdgeCorners(corners, i);
 
                 // Draw red border if:

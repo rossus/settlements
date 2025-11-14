@@ -105,6 +105,13 @@ class HexGrid {
     }
 
     /**
+     * Get neighbors of a hex that exist in the grid
+     */
+    getNeighbors(hex) {
+        return this.map.getExistingNeighbors(hex);
+    }
+
+    /**
      * Get all hexes as an array
      */
     getAllHexes() {
