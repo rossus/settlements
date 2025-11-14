@@ -18,9 +18,9 @@ class MapRenderer {
      * @param {number} offsetY - Y offset for rendering
      * @param {Hex} highlightHex - Hex to highlight (optional)
      * @param {boolean} showGrid - Whether to show grid lines
-     * @param {boolean} debugMode - Whether to show debug info
+     * @param {string} highlightTerrainType - Terrain type to highlight (null if disabled)
      */
-    render(ctx, offsetX = 0, offsetY = 0, highlightHex = null, showGrid = true, debugMode = false) {
+    render(ctx, offsetX = 0, offsetY = 0, highlightHex = null, showGrid = true, highlightTerrainType = null) {
         // First pass: draw all hexagon fills
         this.renderHexagonFills(ctx, offsetX, offsetY, highlightHex);
 
@@ -32,9 +32,9 @@ class MapRenderer {
             this.renderGridLines(ctx, offsetX, offsetY);
         }
 
-        // Fourth pass: draw debug visualization if enabled
-        if (debugMode) {
-            this.renderDebugInfo(ctx, offsetX, offsetY);
+        // Fourth pass: draw terrain type highlighting if enabled
+        if (highlightTerrainType) {
+            this.renderTerrainHighlight(ctx, offsetX, offsetY, highlightTerrainType);
         }
     }
 
@@ -132,55 +132,49 @@ class MapRenderer {
     }
 
     /**
-     * Render debug information
+     * Render terrain type highlighting - draws red borders around all hexes of a specific terrain type
      *
      * @param {CanvasRenderingContext2D} ctx - Canvas context
      * @param {number} offsetX - X offset
      * @param {number} offsetY - Y offset
+     * @param {string} terrainType - Terrain type to highlight
      */
-    renderDebugInfo(ctx, offsetX, offsetY) {
-        const borders = this.grid.getWaterLandBorders();
+    renderTerrainHighlight(ctx, offsetX, offsetY, terrainType) {
+        // Get all hexes of the specified terrain type
+        const targetHexes = [];
+        this.grid.hexes.forEach(hex => {
+            if (hex.type === terrainType) {
+                targetHexes.push(hex);
+            }
+        });
 
-        borders.forEach(border => {
-            const pixel1 = this.grid.hexToPixel(border.hex1);
-            const centerX1 = pixel1.x + offsetX;
-            const centerY1 = pixel1.y + offsetY;
+        // Draw red borders around all edges of these hexes
+        targetHexes.forEach(hex => {
+            const pixel = this.grid.hexToPixel(hex);
+            const centerX = pixel.x + offsetX;
+            const centerY = pixel.y + offsetY;
+            const corners = this.grid.getHexCorners(centerX, centerY);
 
-            const pixel2 = this.grid.hexToPixel(border.hex2);
-            const centerX2 = pixel2.x + offsetX;
-            const centerY2 = pixel2.y + offsetY;
+            // Get all 6 neighbors
+            const neighbors = this.grid.getNeighbors(hex);
 
-            // Calculate shared edge
-            const sharedEdge = this.calculateSharedEdge(border.hex1, border.hex2, offsetX, offsetY);
+            // Draw each edge
+            for (let i = 0; i < 6; i++) {
+                const neighbor = neighbors[i];
+                const edgeCorners = this.getEdgeCorners(corners, i);
 
-            if (sharedEdge) {
-                // Draw the shared edge position in red
-                const midX = (sharedEdge.corner1.x + sharedEdge.corner2.x) / 2;
-                const midY = (sharedEdge.corner1.y + sharedEdge.corner2.y) / 2;
-
-                ctx.fillStyle = 'red';
-                ctx.font = 'bold 12px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(`BORDER`, midX, midY);
-
-                // Draw arrow from hex1 to hex2
-                ctx.strokeStyle = 'yellow';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.moveTo(centerX1, centerY1);
-                ctx.lineTo(centerX2, centerY2);
-                ctx.stroke();
-
-                // Draw neighbor direction label
-                ctx.fillStyle = 'yellow';
-                ctx.fillText(`N${border.neighborDirection}`, (centerX1 + centerX2) / 2, (centerY1 + centerY2) / 2 - 10);
-
-                // Draw hex coordinates for debugging
-                ctx.fillStyle = 'cyan';
-                ctx.font = '10px Arial';
-                ctx.fillText(`${border.hex1.q},${border.hex1.r}`, centerX1, centerY1 + 15);
-                ctx.fillText(`${border.hex2.q},${border.hex2.r}`, centerX2, centerY2 + 15);
+                // Draw red border if:
+                // 1. No neighbor exists (map edge), OR
+                // 2. Neighbor is different terrain type
+                if (!neighbor || neighbor.type !== terrainType) {
+                    ctx.beginPath();
+                    ctx.moveTo(edgeCorners.corner1.x, edgeCorners.corner1.y);
+                    ctx.lineTo(edgeCorners.corner2.x, edgeCorners.corner2.y);
+                    ctx.strokeStyle = '#e74c3c';
+                    ctx.lineWidth = 4;
+                    ctx.lineCap = 'round';
+                    ctx.stroke();
+                }
             }
         });
     }

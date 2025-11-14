@@ -38,6 +38,7 @@ class Game {
         // Display settings
         this.showGrid = true;
         this.debugMode = false;
+        this.highlightTerrainType = null;
 
         this.init();
     }
@@ -98,6 +99,9 @@ class Game {
 
         // Debug button
         document.getElementById('debugBtn').addEventListener('click', () => this.toggleDebug());
+
+        // Terrain type selector
+        document.getElementById('terrainTypeSelect').addEventListener('change', (e) => this.selectTerrainType(e.target.value));
 
         // Reset button
         document.getElementById('resetBtn').addEventListener('click', () => this.reset());
@@ -185,9 +189,36 @@ class Game {
     toggleDebug() {
         this.debugMode = !this.debugMode;
         const btn = document.getElementById('debugBtn');
+        const terrainSelect = document.getElementById('terrainTypeSelect');
+
         btn.textContent = this.debugMode ? 'Debug Mode: On' : 'Debug Mode: Off';
+
+        // Show/hide terrain type selector
+        if (this.debugMode) {
+            terrainSelect.style.display = 'inline-block';
+            this.updateStatus('Debug mode enabled - Select terrain type to highlight');
+        } else {
+            terrainSelect.style.display = 'none';
+            terrainSelect.value = ''; // Reset selection
+            this.highlightTerrainType = null;
+            this.updateStatus('Debug mode disabled');
+        }
+
         this.render();
-        this.updateStatus(`Debug mode ${this.debugMode ? 'enabled' : 'disabled'}`);
+    }
+
+    /**
+     * Select terrain type to highlight
+     */
+    selectTerrainType(terrainType) {
+        this.highlightTerrainType = terrainType || null;
+        this.render();
+
+        if (terrainType) {
+            this.updateStatus(`Highlighting ${terrainType} tiles`);
+        } else {
+            this.updateStatus('No terrain type selected');
+        }
     }
 
     /**
@@ -207,7 +238,7 @@ class Game {
         const hoveredHex = this.inputController ? this.inputController.getHoveredHex() : null;
 
         // Render grid at origin (camera transform handles positioning)
-        this.renderer.render(this.ctx, 0, 0, hoveredHex, this.showGrid, this.debugMode);
+        this.renderer.render(this.ctx, 0, 0, hoveredHex, this.showGrid, this.highlightTerrainType);
 
         // Restore context state
         this.ctx.restore();
