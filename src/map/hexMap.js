@@ -9,11 +9,76 @@
  * Hex - Represents a single hexagon in the grid
  */
 class Hex {
-    constructor(q, r, type = 'grass') {
+    constructor(q, r, typeOrLayers = 'grass') {
         this.q = q; // column (axial coordinate)
         this.r = r; // row (axial coordinate)
-        this.type = type; // terrain type
+
+        // Support both old (string) and new (layers object) format
+        if (typeof typeOrLayers === 'string') {
+            // Old format: type string
+            this._type = typeOrLayers;
+            this._layers = null;
+        } else {
+            // New format: layers object
+            this._type = null;
+            this._layers = typeOrLayers;
+        }
+
         this.data = {}; // additional data storage
+    }
+
+    /**
+     * Get terrain type (backward compatible)
+     * If using layers, returns composite type ID
+     */
+    get type() {
+        if (this._type) {
+            return this._type;
+        }
+        // Generate composite type from layers
+        return this.terrainComposite?.id || 'grass';
+    }
+
+    /**
+     * Set terrain type (backward compatible)
+     */
+    set type(value) {
+        this._type = value;
+        this._layers = null;
+    }
+
+    /**
+     * Get terrain layers
+     */
+    get layers() {
+        return this._layers;
+    }
+
+    /**
+     * Set terrain layers
+     */
+    set layers(value) {
+        this._layers = value;
+        this._type = null;
+    }
+
+    /**
+     * Get composite terrain properties from layers
+     * Returns full terrain definition with all properties
+     */
+    get terrainComposite() {
+        if (!this._layers) {
+            // Fallback to old system
+            return null;
+        }
+        return TerrainLayers.getCompositeType(this._layers);
+    }
+
+    /**
+     * Check if using layered terrain system
+     */
+    get isLayered() {
+        return this._layers !== null;
     }
 
     /**

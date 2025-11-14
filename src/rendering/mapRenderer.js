@@ -61,8 +61,8 @@ class MapRenderer {
             }
             ctx.closePath();
 
-            // Fill with terrain color
-            ctx.fillStyle = Terrain.getColor(hex.type);
+            // Fill with terrain color (supports both old and new systems)
+            ctx.fillStyle = this.getTerrainColor(hex);
             ctx.fill();
 
             // Highlight if this is the hovered hex
@@ -287,6 +287,23 @@ class MapRenderer {
             corner1: corners[edgeIndex],
             corner2: corners[(edgeIndex + 1) % 6]
         };
+    }
+
+    /**
+     * Get terrain color for a hex (supports both old and new terrain systems)
+     *
+     * @param {Hex} hex - Hex to get color for
+     * @returns {string} Hex color code
+     */
+    getTerrainColor(hex) {
+        if (hex.isLayered) {
+            // New layered system
+            const composite = hex.terrainComposite;
+            return composite ? composite.color : Terrain.Colors.DEFAULT;
+        } else {
+            // Old flat system
+            return Terrain.getColor(hex.type);
+        }
     }
 
     /**
