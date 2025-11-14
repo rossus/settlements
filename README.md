@@ -166,10 +166,16 @@ Works in all modern browsers:
 
 ## Documentation
 
-See `docs/` for detailed refactoring documentation:
-- `REFACTORING_COMPLETE.md` - Complete overview
+See `docs/` for detailed documentation:
+- **`CODE_REUSABILITY.md`** - How to reuse code in other projects ← NEW!
+- **`GIT_WORKFLOW.md`** - Git workflow and versioning guide ← NEW!
+- **`FOLDER_STRUCTURE.md`** - Project organization explained ← NEW!
+- `REFACTORING_COMPLETE.md` - Complete refactoring overview
 - `REFACTORING_STEP4.md` - MapRenderer extraction
 - `REFACTORING_STEP5.md` - HexMap & MapGenerator extraction
+
+See `examples/` for code reuse demonstrations:
+- `reuse-hexmath.html` - Using hexMath in a different game
 
 ## License
 

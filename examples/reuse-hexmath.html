@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reusing HexMath - Simple Hex Puzzle</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #2c3e50;
+            color: white;
+        }
+        h1 {
+            text-align: center;
+        }
+        .info {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background: #34495e;
+            border: 3px solid #1abc9c;
+            cursor: crosshair;
+        }
+        .instructions {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #34495e;
+            border-radius: 8px;
+        }
+        .highlight {
+            color: #1abc9c;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 Hex Puzzle Game</h1>
+    <div class="info">
+        <span class="highlight">Click hexes to change colors!</span> |
+        Distance from center: <span id="distance">-</span>
+    </div>
+    <canvas id="canvas" width="800" height="600"></canvas>
+
+    <div class="instructions">
+        <h3>This Example Shows:</h3>
+        <ul>
+            <li>✅ <strong>Reusing hexMath.js</strong> - Just copied the file!</li>
+            <li>✅ <strong>No modifications needed</strong> - Works out of the box</li>
+            <li>✅ <strong>Different game/project</strong> - Hex puzzle instead of strategy game</li>
+            <li>✅ <strong>Same coordinate system</strong> - Axial coordinates work perfectly</li>
+        </ul>
+        <p><strong>How it works:</strong></p>
+        <ul>
+            <li>Uses <code>HexMath.offsetToAxial()</code> to create grid</li>
+            <li>Uses <code>HexMath.hexToPixel()</code> to position hexes</li>
+            <li>Uses <code>HexMath.getHexCorners()</code> to draw hexagons</li>
+            <li>Uses <code>HexMath.pixelToHex()</code> for click detection</li>
+            <li>Uses <code>HexMath.distance()</code> to calculate distance from center</li>
+        </ul>
+    </div>
+
+    <!--
+        Step 1: Copy hexMath.js to this project
+        In real use: cp ../src/core/hexMath.js ./hexMath.js
+    -->
+    <script src="../src/core/hexMath.js"></script>
+
+    <script>
+        /**
+         * Simple Hex Puzzle Game
+         * Demonstrates reusing hexMath.js in a completely different project
+         */
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Puzzle config
+        const hexSize = 35;
+        const gridWidth = 10;
+        const gridHeight = 8;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        // Puzzle state
+        const hexes = [];
+        const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c'];
+
+        // Create hex grid using HexMath
+        function createGrid() {
+            for (let row = 0; row < gridHeight; row++) {
+                for (let col = 0; col < gridWidth; col++) {
+                    // Use HexMath to convert offset to axial coordinates
+                    const axial = HexMath.offsetToAxial(col, row, 'pointy');
+
+                    // Use HexMath to convert to pixel coordinates
+                    const pixel = HexMath.hexToPixel(axial.q, axial.r, hexSize, 'pointy');
+
+                    hexes.push({
+                        q: axial.q,
+                        r: axial.r,
+                        x: pixel.x + centerX,
+                        y: pixel.y + centerY,
+                        color: colors[Math.floor(Math.random() * colors.length)]
+                    });
+                }
+            }
+        }
+
+        // Draw hexagons using HexMath
+        function drawHexagon(centerX, centerY, color, isHovered = false) {
+            // Use HexMath to get corner positions
+            const corners = HexMath.getHexCorners(centerX, centerY, hexSize, 'pointy');
+
+            ctx.beginPath();
+            ctx.moveTo(corners[0].x, corners[0].y);
+            for (let i = 1; i < corners.length; i++) {
+                ctx.lineTo(corners[i].x, corners[i].y);
+            }
+            ctx.closePath();
+
+            // Fill
+            ctx.fillStyle = color;
+            ctx.fill();
+
+            // Stroke
+            ctx.strokeStyle = isHovered ? '#ffffff' : '#2c3e50';
+            ctx.lineWidth = isHovered ? 4 : 2;
+            ctx.stroke();
+        }
+
+        // Render all hexes
+        function render(hoveredHex = null) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            hexes.forEach(hex => {
+                const isHovered = hoveredHex &&
+                                  hex.q === hoveredHex.q &&
+                                  hex.r === hoveredHex.r;
+                drawHexagon(hex.x, hex.y, hex.color, isHovered);
+
+                // Draw coordinates for demonstration
+                if (isHovered) {
+                    ctx.fillStyle = 'white';
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`(${hex.q}, ${hex.r})`, hex.x, hex.y);
+                }
+            });
+        }
+
+        // Find hex at pixel position using HexMath
+        function getHexAtPixel(mouseX, mouseY) {
+            // Convert screen position to hex coordinates using HexMath
+            const worldX = mouseX - centerX;
+            const worldY = mouseY - centerY;
+            const hexCoords = HexMath.pixelToHex(worldX, worldY, hexSize, 'pointy');
+
+            // Find matching hex
+            return hexes.find(h => h.q === hexCoords.q && h.r === hexCoords.r);
+        }
+
+        // Mouse move handler
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const hex = getHexAtPixel(mouseX, mouseY);
+
+            if (hex) {
+                // Calculate distance from center using HexMath
+                const dist = HexMath.distance(0, 0, hex.q, hex.r);
+                document.getElementById('distance').textContent = dist.toFixed(1);
+            } else {
+                document.getElementById('distance').textContent = '-';
+            }
+
+            render(hex);
+        });
+
+        // Click handler
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const hex = getHexAtPixel(mouseX, mouseY);
+
+            if (hex) {
+                // Change color
+                const currentIndex = colors.indexOf(hex.color);
+                const nextIndex = (currentIndex + 1) % colors.length;
+                hex.color = colors[nextIndex];
+                render(hex);
+            }
+        });
+
+        // Initialize
+        createGrid();
+        render();
+
+        console.log('✅ HexMath reused successfully in a different project!');
+        console.log(`✅ Created ${hexes.length} hexes using HexMath utilities`);
+        console.log('✅ No modifications to hexMath.js needed!');
+    </script>
+</body>
+</html>
