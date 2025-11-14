@@ -76,7 +76,18 @@ const Terrain = {
             movementCost: 2.5,
             generationWeight: 5,
             description: 'Marshy swampland that is difficult to traverse'
-        }
+        },
+        TUNDRA: {
+            id: 'tundra',
+            name: 'Tundra',
+            color: '#b8d4e0',
+            walkable: true,
+            buildable: true,
+            isWater: false,
+            movementCost: 1.8,
+            generationWeight: 8,
+            description: 'Frozen tundra with permafrost'
+  }
     },
 
     /**
