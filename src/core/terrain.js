@@ -44,6 +44,17 @@ const Terrain = {
             generationWeight: 15,
             description: 'Deep water, impassable without boats'
         },
+        SHALLOW_WATER: {
+            id: 'shallow_water',
+            name: 'Shallow Water',
+            color: '#7cb9e8',
+            walkable: true,
+            buildable: false,
+            isWater: true,
+            movementCost: 3,
+            generationWeight: 8,
+            description: 'Shallow water that can be waded through slowly'
+        },
         MOUNTAIN: {
             id: 'mountain',
             name: 'Mountain',
