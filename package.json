@@ -12,7 +12,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/settlements.git"
+    "url": "git+https://github.com/rossus/settlements.git"
   },
   "keywords": [
     "game",
@@ -23,12 +23,12 @@
     "canvas",
     "procedural-generation"
   ],
-  "author": "Your Name",
+  "author": "rossus",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/yourusername/settlements/issues"
+    "url": "https://github.com/rossus/settlements/issues"
   },
-  "homepage": "https://github.com/yourusername/settlements#readme",
+  "homepage": "https://github.com/rossus/settlements#readme",
   "devDependencies": {},
   "dependencies": {},
   "engines": {
