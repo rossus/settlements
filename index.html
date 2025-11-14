@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settlements</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="ui-overlay">
+        <div class="top-bar">
+            <h1>Settlements</h1>
+            <div class="controls">
+                <label for="worldSize" class="control-label">World Size:</label>
+                <select id="worldSize" class="world-size-select">
+                    <option value="tiny">Tiny</option>
+                    <option value="small">Small</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="large">Large</option>
+                    <option value="huge">Huge</option>
+                </select>
+                <button id="toggleGridBtn">Hide Grid</button>
+                <button id="debugBtn">Debug Mode: Off</button>
+                <button id="resetBtn">Reset Map</button>
+            </div>
+        </div>
+        <div class="bottom-bar">
+            <span id="info">Drag to pan, scroll to zoom</span>
+            <span id="status">Ready</span>
+        </div>
+    </div>
+
+    <!-- Core utilities -->
+    <script src="src/core/hexMath.js"></script>
+    <script src="src/core/terrain.js"></script>
+    <script src="src/core/camera.js"></script>
+
+    <!-- Map system -->
+    <script src="src/map/hexMap.js"></script>
+    <script src="src/map/mapGenerator.js"></script>
+    <script src="src/map/hexGrid.js"></script>
+
+    <!-- Rendering & Input -->
+    <script src="src/rendering/mapRenderer.js"></script>
+    <script src="src/input/inputController.js"></script>
+
+    <!-- Game orchestrator -->
+    <script src="src/game.js"></script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+{
+  "name": "settlements",
+  "version": "0.1.0",
+  "description": "A hexagonal grid-based strategy game built with vanilla JavaScript",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 8000 || python3 -m http.server 8000",
+    "serve": "npx http-server -p 8000 -o",
+    "test": "echo \"No tests yet\" && exit 0",
+    "version": "echo \"Current version: $(node -p \\\"require('./package.json').version\\\")\"",
+    "changelog": "git log --oneline --decorate --graph"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/settlements.git"
+  },
+  "keywords": [
+    "game",
+    "hexagonal",
+    "grid",
+    "strategy",
+    "javascript",
+    "canvas",
+    "procedural-generation"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yourusername/settlements/issues"
+  },
+  "homepage": "https://github.com/yourusername/settlements#readme",
+  "devDependencies": {},
+  "dependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
