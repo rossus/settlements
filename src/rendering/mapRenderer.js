@@ -146,7 +146,7 @@ class MapRenderer {
      * Returns borders where the hex is the target type and neighbor is different or doesn't exist
      *
      * @param {string} terrainType - Terrain type to get borders for
-     * @returns {Array<{hex1: Hex, hex2: Hex|null, edgeIndex: number}>} Border data
+     * @returns {Array<{hex1: Hex, hex2: Hex|null, neighborDirection: {q, r}}>} Border data
      */
     getBordersForTerrain(terrainType) {
         const borders = [];
@@ -168,8 +168,8 @@ class MapRenderer {
                     if (!neighbor || neighbor.type !== terrainType) {
                         borders.push({
                             hex1: hex,
-                            hex2: neighbor, // null for map edges
-                            edgeIndex: i    // which edge (0-5)
+                            hex2: neighbor,        // null for map edges
+                            neighborDirection: dir // direction vector to (missing) neighbor
                         });
                     }
                 }
@@ -185,7 +185,7 @@ class MapRenderer {
      * @param {CanvasRenderingContext2D} ctx - Canvas context
      * @param {number} offsetX - X offset
      * @param {number} offsetY - Y offset
-     * @param {Array<{hex1: Hex, hex2: Hex|null, edgeIndex: number}>} borders - Border data
+     * @param {Array<{hex1: Hex, hex2: Hex|null, neighborDirection: {q, r}}>} borders - Border data
      * @param {Object} style - Style object {strokeStyle, lineWidth, lineCap}
      */
     renderBorders(ctx, offsetX, offsetY, borders, style) {
@@ -196,12 +196,14 @@ class MapRenderer {
                 // Border between two hexes - use geometric calculation (robust, works always)
                 sharedEdge = this.calculateSharedEdge(border.hex1, border.hex2, offsetX, offsetY);
             } else {
-                // Map edge - use edge index (safe since there's only one hex)
-                const pixel = this.grid.hexToPixel(border.hex1);
-                const centerX = pixel.x + offsetX;
-                const centerY = pixel.y + offsetY;
-                const corners = this.grid.getHexCorners(centerX, centerY);
-                sharedEdge = this.getEdgeCorners(corners, border.edgeIndex);
+                // Map edge - create virtual neighbor and use geometric calculation
+                // This avoids the neighbor-direction-to-edge-index mapping problem
+                const virtualNeighbor = new Hex(
+                    border.hex1.q + border.neighborDirection.q,
+                    border.hex1.r + border.neighborDirection.r,
+                    'virtual'
+                );
+                sharedEdge = this.calculateSharedEdge(border.hex1, virtualNeighbor, offsetX, offsetY);
             }
 
             if (sharedEdge) {
