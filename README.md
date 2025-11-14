@@ -180,21 +180,29 @@ git push origin main
 # Automatically becomes v0.2.0!
 ```
 
-See `docs/AUTO_VERSIONING.md` for complete guide.
+See [`docs/guides/auto-versioning.md`](docs/guides/auto-versioning.md) for complete guide.
 
 ## Documentation
 
-See `docs/` for detailed documentation:
-- **`AUTO_VERSIONING.md`** - Automatic versioning system ← NEW!
-- **`CODE_REUSABILITY.md`** - How to reuse code in other projects
-- **`GIT_WORKFLOW.md`** - Git workflow and versioning guide
-- **`FOLDER_STRUCTURE.md`** - Project organization explained
-- `REFACTORING_COMPLETE.md` - Complete refactoring overview
-- `REFACTORING_STEP4.md` - MapRenderer extraction
-- `REFACTORING_STEP5.md` - HexMap & MapGenerator extraction
+**📖 Complete documentation index:** [`docs/README.md`](docs/README.md)
 
-See `examples/` for code reuse demonstrations:
-- `reuse-hexmath.html` - Using hexMath in a different game
+### Quick Links
+
+**Guides:**
+- [Auto Versioning](docs/guides/auto-versioning.md) - Automatic semantic versioning
+- [Code Reusability](docs/guides/code-reusability.md) - Reusing code in other projects
+- [Git Workflow](docs/guides/git-workflow.md) - Version control and collaboration
+
+**Architecture:**
+- [Folder Structure](docs/architecture/folder-structure.md) - Project organization
+
+**History:**
+- [Refactoring Complete](docs/history/refactoring-complete.md) - Complete refactoring story
+- [All History Docs](docs/history/) - Detailed refactoring steps
+
+**Examples:**
+- [`examples/reuse-hexmath.html`](examples/reuse-hexmath.html) - Using hexMath in another game
+- [Examples README](examples/README.md) - All code reuse examples
 
 ## License
 
