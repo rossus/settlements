@@ -164,12 +164,31 @@ Works in all modern browsers:
 - Edge 90+
 - Safari 14+
 
+## Automatic Versioning
+
+This project uses **automatic semantic versioning** via GitHub Actions:
+
+- ✅ Every `feat:` commit → version bump (0.1.0 → 0.2.0)
+- ✅ Every `fix:` commit → patch bump (0.2.0 → 0.2.1)
+- ✅ Auto-updates `package.json` and `CHANGELOG.md`
+- ✅ Auto-creates git tags (`v0.x.x`)
+
+**Example:**
+```bash
+git commit -m "feat: add Perlin noise generation"
+git push origin main
+# Automatically becomes v0.2.0!
+```
+
+See `docs/AUTO_VERSIONING.md` for complete guide.
+
 ## Documentation
 
 See `docs/` for detailed documentation:
-- **`CODE_REUSABILITY.md`** - How to reuse code in other projects ← NEW!
-- **`GIT_WORKFLOW.md`** - Git workflow and versioning guide ← NEW!
-- **`FOLDER_STRUCTURE.md`** - Project organization explained ← NEW!
+- **`AUTO_VERSIONING.md`** - Automatic versioning system ← NEW!
+- **`CODE_REUSABILITY.md`** - How to reuse code in other projects
+- **`GIT_WORKFLOW.md`** - Git workflow and versioning guide
+- **`FOLDER_STRUCTURE.md`** - Project organization explained
 - `REFACTORING_COMPLETE.md` - Complete refactoring overview
 - `REFACTORING_STEP4.md` - MapRenderer extraction
 - `REFACTORING_STEP5.md` - HexMap & MapGenerator extraction

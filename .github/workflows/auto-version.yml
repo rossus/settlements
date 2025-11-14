@@ -1,0 +1,177 @@
+name: Auto Version & Tag
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+
+    # Don't run on version bump commits to avoid infinite loop
+    if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for proper versioning
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Get current version
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+
+      - name: Determine version bump type
+        id: bump_type
+        run: |
+          # Get the commit message
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          echo "Commit message: $COMMIT_MSG"
+
+          # Determine bump type based on conventional commits
+          if [[ $COMMIT_MSG =~ ^feat(\(.*\))?!:|^BREAKING[[:space:]]CHANGE: ]]; then
+            echo "type=minor" >> $GITHUB_OUTPUT
+            echo "Bump type: MINOR (breaking change or major feature)"
+          elif [[ $COMMIT_MSG =~ ^feat(\(.*\))?: ]]; then
+            echo "type=minor" >> $GITHUB_OUTPUT
+            echo "Bump type: MINOR (new feature)"
+          elif [[ $COMMIT_MSG =~ ^fix(\(.*\))?: ]]; then
+            echo "type=patch" >> $GITHUB_OUTPUT
+            echo "Bump type: PATCH (bug fix)"
+          elif [[ $COMMIT_MSG =~ ^perf(\(.*\))?: ]]; then
+            echo "type=patch" >> $GITHUB_OUTPUT
+            echo "Bump type: PATCH (performance improvement)"
+          else
+            echo "type=none" >> $GITHUB_OUTPUT
+            echo "Bump type: NONE (docs, chore, style, refactor, test)"
+          fi
+
+      - name: Bump version
+        id: new_version
+        if: steps.bump_type.outputs.type != 'none'
+        run: |
+          CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
+          BUMP_TYPE="${{ steps.bump_type.outputs.type }}"
+
+          # Parse current version (assuming format: MAJOR.MINOR.PATCH)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+
+          # For 0.x.x versions, only bump minor and patch
+          if [ "$MAJOR" = "0" ]; then
+            if [ "$BUMP_TYPE" = "minor" ]; then
+              MINOR=$((MINOR + 1))
+              PATCH=0
+            elif [ "$BUMP_TYPE" = "patch" ]; then
+              PATCH=$((PATCH + 1))
+            fi
+          else
+            # For 1.x.x and beyond, follow semver strictly
+            if [ "$BUMP_TYPE" = "major" ]; then
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+            elif [ "$BUMP_TYPE" = "minor" ]; then
+              MINOR=$((MINOR + 1))
+              PATCH=0
+            elif [ "$BUMP_TYPE" = "patch" ]; then
+              PATCH=$((PATCH + 1))
+            fi
+          fi
+
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+
+      - name: Update package.json
+        if: steps.bump_type.outputs.type != 'none'
+        run: |
+          NEW_VERSION="${{ steps.new_version.outputs.version }}"
+          node -e "
+            const fs = require('fs');
+            const package = require('./package.json');
+            package.version = '$NEW_VERSION';
+            fs.writeFileSync('./package.json', JSON.stringify(package, null, 2) + '\n');
+          "
+          echo "Updated package.json to version $NEW_VERSION"
+
+      - name: Update CHANGELOG.md
+        if: steps.bump_type.outputs.type != 'none'
+        run: |
+          NEW_VERSION="${{ steps.new_version.outputs.version }}"
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          COMMIT_HASH="${{ github.sha }}"
+          SHORT_HASH="${COMMIT_HASH:0:7}"
+          DATE=$(date +%Y-%m-%d)
+          BUMP_TYPE="${{ steps.bump_type.outputs.type }}"
+
+          # Determine change category
+          if [[ $COMMIT_MSG =~ ^feat ]]; then
+            CATEGORY="Added"
+          elif [[ $COMMIT_MSG =~ ^fix ]]; then
+            CATEGORY="Fixed"
+          elif [[ $COMMIT_MSG =~ ^perf ]]; then
+            CATEGORY="Changed"
+          else
+            CATEGORY="Changed"
+          fi
+
+          # Extract commit message (first line only)
+          FIRST_LINE=$(echo "$COMMIT_MSG" | head -n 1)
+
+          # Create new changelog entry
+          NEW_ENTRY="## [$NEW_VERSION] - $DATE\n\n### $CATEGORY\n- $FIRST_LINE (${SHORT_HASH})\n\n---\n"
+
+          # Insert after [Unreleased] section
+          sed -i "/## \[Unreleased\]/a\\
+          \\
+          $NEW_ENTRY" CHANGELOG.md
+
+          echo "Updated CHANGELOG.md with version $NEW_VERSION"
+
+      - name: Commit version bump
+        if: steps.bump_type.outputs.type != 'none'
+        run: |
+          NEW_VERSION="${{ steps.new_version.outputs.version }}"
+          git add package.json CHANGELOG.md
+          git commit -m "chore(release): bump version to $NEW_VERSION [skip ci]"
+
+      - name: Create and push tag
+        if: steps.bump_type.outputs.type != 'none'
+        run: |
+          NEW_VERSION="${{ steps.new_version.outputs.version }}"
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          FIRST_LINE=$(echo "$COMMIT_MSG" | head -n 1)
+
+          git tag -a "v$NEW_VERSION" -m "Version $NEW_VERSION
+
+          $FIRST_LINE"
+
+          git push origin main
+          git push origin "v$NEW_VERSION"
+
+          echo "Created and pushed tag v$NEW_VERSION"
+
+      - name: Skip versioning
+        if: steps.bump_type.outputs.type == 'none'
+        run: |
+          echo "No version bump needed for this commit type"
+          echo "Commit types that trigger version bumps: feat, fix, perf"
+          echo "Commit types that don't: docs, chore, style, refactor, test"
