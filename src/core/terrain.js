@@ -19,6 +19,7 @@ const Terrain = {
             buildable: true,
             isWater: false,
             movementCost: 1,
+            generationWeight: 40,
             description: 'Open grassland suitable for settlements'
         },
         FOREST: {
@@ -29,6 +30,7 @@ const Terrain = {
             buildable: false,
             isWater: false,
             movementCost: 2,
+            generationWeight: 25,
             description: 'Dense forest that slows movement'
         },
         WATER: {
@@ -39,6 +41,7 @@ const Terrain = {
             buildable: false,
             isWater: true,
             movementCost: Infinity,
+            generationWeight: 15,
             description: 'Deep water, impassable without boats'
         },
         MOUNTAIN: {
@@ -49,6 +52,7 @@ const Terrain = {
             buildable: false,
             isWater: false,
             movementCost: 3,
+            generationWeight: 10,
             description: 'Rocky mountains that are difficult to traverse'
         },
         DESERT: {
@@ -59,7 +63,19 @@ const Terrain = {
             buildable: true,
             isWater: false,
             movementCost: 1.5,
+            generationWeight: 10,
             description: 'Arid desert with limited resources'
+        },
+        SWAMP: {
+            id: 'swamp',
+            name: 'Swamp',
+            color: '#4a5d3e',
+            walkable: true,
+            buildable: false,
+            isWater: false,
+            movementCost: 2.5,
+            generationWeight: 5,
+            description: 'Marshy swampland that is difficult to traverse'
         }
     },
 
@@ -158,30 +174,26 @@ const Terrain = {
 
     /**
      * Get weighted random terrain type
-     * More realistic terrain distribution
+     * Automatically uses generationWeight from terrain type definitions
      *
      * @returns {string} Random terrain type ID based on weights
      */
     getWeightedRandomType() {
-        const weights = {
-            'grass': 40,    // 40% grass
-            'forest': 25,   // 25% forest
-            'water': 15,    // 15% water
-            'mountain': 10, // 10% mountain
-            'desert': 10    // 10% desert
-        };
+        // Build weights from terrain type definitions
+        const terrainTypes = Object.values(this.Types);
+        const totalWeight = terrainTypes.reduce((sum, t) => sum + (t.generationWeight || 0), 0);
 
-        const total = Object.values(weights).reduce((sum, w) => sum + w, 0);
-        let random = Math.random() * total;
+        let random = Math.random() * totalWeight;
 
-        for (const [type, weight] of Object.entries(weights)) {
-            random -= weight;
+        for (const type of terrainTypes) {
+            random -= (type.generationWeight || 0);
             if (random <= 0) {
-                return type;
+                return type.id;
             }
         }
 
-        return 'grass'; // Fallback
+        // Fallback to first terrain type
+        return terrainTypes[0]?.id || 'grass';
     },
 
     /**

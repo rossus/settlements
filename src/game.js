@@ -65,6 +65,9 @@ class Game {
             onResize: () => this.handleResize()
         });
 
+        // Populate terrain type selector from Terrain.Types
+        this.populateTerrainSelector();
+
         // Setup UI event listeners (buttons, dropdowns)
         this.setupUIListeners();
 
@@ -84,6 +87,27 @@ class Game {
         this.canvas.width = this.canvasWidth;
         this.canvas.height = this.canvasHeight;
         this.camera.setCanvasSize(this.canvasWidth, this.canvasHeight);
+    }
+
+    /**
+     * Populate terrain type selector from Terrain.Types
+     * This makes the selector automatically update when new terrain types are added
+     */
+    populateTerrainSelector() {
+        const select = document.getElementById('terrainTypeSelect');
+
+        // Get all terrain types and sort alphabetically by name
+        const terrainTypes = Object.values(Terrain.Types).sort((a, b) =>
+            a.name.localeCompare(b.name)
+        );
+
+        // Add option for each terrain type
+        terrainTypes.forEach(type => {
+            const option = document.createElement('option');
+            option.value = type.id;
+            option.textContent = type.name;
+            select.appendChild(option);
+        });
     }
 
     /**
