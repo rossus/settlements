@@ -206,6 +206,10 @@ class Game {
             this.updateStatus('Debug view: Landmass (water vs land)');
         } else if (view === 'heightmap') {
             this.updateStatus('Debug view: Heightmap (elevation levels)');
+        } else if (view === 'climate') {
+            this.updateStatus('Debug view: Climate (temperature zones)');
+        } else if (view === 'vegetation') {
+            this.updateStatus('Debug view: Vegetation (surface types)');
         } else {
             this.updateStatus('Debug view disabled');
         }

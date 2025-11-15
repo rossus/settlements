@@ -28,6 +28,12 @@ class MapRenderer {
         } else if (debugView === 'heightmap') {
             this.renderDebugHeightmap(ctx, offsetX, offsetY, highlightHex, showGrid);
             return;
+        } else if (debugView === 'climate') {
+            this.renderDebugClimate(ctx, offsetX, offsetY, highlightHex, showGrid);
+            return;
+        } else if (debugView === 'vegetation') {
+            this.renderDebugVegetation(ctx, offsetX, offsetY, highlightHex, showGrid);
+            return;
         }
 
         // Normal rendering
@@ -431,7 +437,7 @@ class MapRenderer {
             'shallow_water': '#3498db',   // Light blue (-1)
             'lowlands': '#2ecc71',        // Green (0)
             'hills': '#f39c12',           // Orange (+1)
-            'mountains': '#95a5a6'        // Gray (+2)
+            'mountains': '#e74c3c'        // Red (+2)
         };
 
         this.grid.hexes.forEach(hex => {
@@ -459,6 +465,136 @@ class MapRenderer {
             }
 
             ctx.fillStyle = heightColor;
+            ctx.fill();
+
+            // Highlight if this is the hovered hex
+            if (highlightHex && hex.equals(highlightHex)) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.fill();
+            }
+        });
+
+        // Draw grid lines if enabled
+        if (showGrid) {
+            this.renderGridLines(ctx, offsetX, offsetY);
+        }
+    }
+
+    /**
+     * Render debug view: Climate (temperature zones)
+     * Colors tiles based on their climate layer
+     *
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} offsetX - X offset
+     * @param {number} offsetY - Y offset
+     * @param {Hex} highlightHex - Hex to highlight (optional)
+     * @param {boolean} showGrid - Whether to show grid lines
+     */
+    renderDebugClimate(ctx, offsetX, offsetY, highlightHex, showGrid) {
+        // Climate colors
+        const CLIMATE_COLORS = {
+            'hot': '#e67e22',       // Orange
+            'moderate': '#95a5a6',  // Gray
+            'cold': '#3498db'       // Blue
+        };
+
+        this.grid.hexes.forEach(hex => {
+            const pixel = this.grid.hexToPixel(hex);
+            const centerX = pixel.x + offsetX;
+            const centerY = pixel.y + offsetY;
+            const corners = this.grid.getHexCorners(centerX, centerY);
+
+            // Draw hexagon shape
+            ctx.beginPath();
+            ctx.moveTo(corners[0].x, corners[0].y);
+            for (let i = 1; i < corners.length; i++) {
+                ctx.lineTo(corners[i].x, corners[i].y);
+            }
+            ctx.closePath();
+
+            // Get climate layer and color
+            let climateColor = '#888888'; // Default gray
+            if (hex.isLayered && hex.layers && hex.layers.climate) {
+                climateColor = CLIMATE_COLORS[hex.layers.climate] || climateColor;
+            } else {
+                // Old system - all moderate
+                climateColor = CLIMATE_COLORS['moderate'];
+            }
+
+            ctx.fillStyle = climateColor;
+            ctx.fill();
+
+            // Highlight if this is the hovered hex
+            if (highlightHex && hex.equals(highlightHex)) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.fill();
+            }
+        });
+
+        // Draw grid lines if enabled
+        if (showGrid) {
+            this.renderGridLines(ctx, offsetX, offsetY);
+        }
+    }
+
+    /**
+     * Render debug view: Vegetation (surface types)
+     * Colors tiles based on their vegetation layer
+     *
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} offsetX - X offset
+     * @param {number} offsetY - Y offset
+     * @param {Hex} highlightHex - Hex to highlight (optional)
+     * @param {boolean} showGrid - Whether to show grid lines
+     */
+    renderDebugVegetation(ctx, offsetX, offsetY, highlightHex, showGrid) {
+        // Vegetation colors (from TerrainLayers)
+        const VEGETATION_COLORS = {
+            'none': '#b8a896',      // Barren
+            'grassland': '#7ec850', // Green
+            'forest': '#228b22',    // Dark green
+            'desert': '#f4e4a6',    // Sandy
+            'tundra': '#b8d4e0',    // Icy
+            'swamp': '#4a5d3e'      // Dark murky
+        };
+
+        this.grid.hexes.forEach(hex => {
+            const pixel = this.grid.hexToPixel(hex);
+            const centerX = pixel.x + offsetX;
+            const centerY = pixel.y + offsetY;
+            const corners = this.grid.getHexCorners(centerX, centerY);
+
+            // Draw hexagon shape
+            ctx.beginPath();
+            ctx.moveTo(corners[0].x, corners[0].y);
+            for (let i = 1; i < corners.length; i++) {
+                ctx.lineTo(corners[i].x, corners[i].y);
+            }
+            ctx.closePath();
+
+            // Get vegetation layer and color
+            let vegetationColor = '#888888'; // Default gray
+            if (hex.isLayered && hex.layers && hex.layers.vegetation) {
+                vegetationColor = VEGETATION_COLORS[hex.layers.vegetation] || vegetationColor;
+            } else {
+                // Old system - approximate from terrain type
+                const terrainType = hex.type;
+                if (terrainType === 'grass' || terrainType === 'plains') {
+                    vegetationColor = VEGETATION_COLORS['grassland'];
+                } else if (terrainType === 'forest') {
+                    vegetationColor = VEGETATION_COLORS['forest'];
+                } else if (terrainType === 'desert') {
+                    vegetationColor = VEGETATION_COLORS['desert'];
+                } else if (terrainType === 'tundra') {
+                    vegetationColor = VEGETATION_COLORS['tundra'];
+                } else if (terrainType === 'swamp') {
+                    vegetationColor = VEGETATION_COLORS['swamp'];
+                } else {
+                    vegetationColor = VEGETATION_COLORS['none'];
+                }
+            }
+
+            ctx.fillStyle = vegetationColor;
             ctx.fill();
 
             // Highlight if this is the hovered hex
