@@ -24,15 +24,18 @@ class MapRenderer {
         // First pass: draw all hexagon fills
         this.renderHexagonFills(ctx, offsetX, offsetY, highlightHex);
 
-        // Second pass: draw sand borders between water and land
+        // Second pass: draw terrain textures (hills, mountains)
+        this.renderTerrainTextures(ctx, offsetX, offsetY);
+
+        // Third pass: draw sand borders between water and land
         this.renderSandBorders(ctx, offsetX, offsetY);
 
-        // Third pass: draw grid lines on top of sand borders
+        // Fourth pass: draw grid lines on top of sand borders
         if (showGrid) {
             this.renderGridLines(ctx, offsetX, offsetY);
         }
 
-        // Fourth pass: draw terrain type highlighting if enabled
+        // Fifth pass: draw terrain type highlighting if enabled
         if (highlightTerrainType) {
             this.renderTerrainHighlight(ctx, offsetX, offsetY, highlightTerrainType);
         }
@@ -100,6 +103,124 @@ class MapRenderer {
             ctx.lineWidth = 1;
             ctx.stroke();
         });
+    }
+
+    /**
+     * Render terrain textures (hills and mountains)
+     *
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} offsetX - X offset
+     * @param {number} offsetY - Y offset
+     */
+    renderTerrainTextures(ctx, offsetX, offsetY) {
+        this.grid.hexes.forEach(hex => {
+            // Only render textures for layered terrain with elevation
+            if (!hex.isLayered || !hex.layers) return;
+
+            const heightLayer = hex.layers.height;
+
+            // Skip if not hills or mountains
+            if (heightLayer !== 'hills' && heightLayer !== 'mountains') return;
+
+            const pixel = this.grid.hexToPixel(hex);
+            const centerX = pixel.x + offsetX;
+            const centerY = pixel.y + offsetY;
+            const corners = this.grid.getHexCorners(centerX, centerY);
+
+            if (heightLayer === 'hills') {
+                this.drawHillTexture(ctx, centerX, centerY, corners);
+            } else if (heightLayer === 'mountains') {
+                this.drawMountainTexture(ctx, centerX, centerY, corners);
+            }
+        });
+    }
+
+    /**
+     * Draw hill texture (subtle diagonal lines)
+     *
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} centerX - Center X position
+     * @param {number} centerY - Center Y position
+     * @param {Array} corners - Hex corner positions
+     */
+    drawHillTexture(ctx, centerX, centerY, corners) {
+        const hexRadius = this.grid.hexSize;
+
+        ctx.save();
+
+        // Clip to hex shape
+        ctx.beginPath();
+        ctx.moveTo(corners[0].x, corners[0].y);
+        for (let i = 1; i < corners.length; i++) {
+            ctx.lineTo(corners[i].x, corners[i].y);
+        }
+        ctx.closePath();
+        ctx.clip();
+
+        // Draw subtle diagonal lines
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+        ctx.lineWidth = 1.5;
+
+        const spacing = hexRadius * 0.3;
+        const lineCount = 4;
+
+        for (let i = -lineCount; i <= lineCount; i++) {
+            ctx.beginPath();
+            ctx.moveTo(centerX + i * spacing - hexRadius, centerY - hexRadius);
+            ctx.lineTo(centerX + i * spacing + hexRadius, centerY + hexRadius);
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+
+    /**
+     * Draw mountain texture (triangular peaks)
+     *
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} centerX - Center X position
+     * @param {number} centerY - Center Y position
+     * @param {Array} corners - Hex corner positions
+     */
+    drawMountainTexture(ctx, centerX, centerY, corners) {
+        const hexRadius = this.grid.hexSize;
+
+        ctx.save();
+
+        // Clip to hex shape
+        ctx.beginPath();
+        ctx.moveTo(corners[0].x, corners[0].y);
+        for (let i = 1; i < corners.length; i++) {
+            ctx.lineTo(corners[i].x, corners[i].y);
+        }
+        ctx.closePath();
+        ctx.clip();
+
+        // Draw multiple small triangular peaks
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+        ctx.lineWidth = 1.5;
+        ctx.lineJoin = 'miter';
+
+        const peakSize = hexRadius * 0.4;
+        const positions = [
+            { x: 0, y: -peakSize * 0.3 },
+            { x: -peakSize * 0.6, y: peakSize * 0.4 },
+            { x: peakSize * 0.6, y: peakSize * 0.4 }
+        ];
+
+        positions.forEach(pos => {
+            ctx.beginPath();
+            ctx.moveTo(centerX + pos.x, centerY + pos.y + peakSize * 0.5);
+            ctx.lineTo(centerX + pos.x - peakSize * 0.4, centerY + pos.y + peakSize * 0.5);
+            ctx.lineTo(centerX + pos.x, centerY + pos.y - peakSize * 0.5);
+            ctx.lineTo(centerX + pos.x + peakSize * 0.4, centerY + pos.y + peakSize * 0.5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+        });
+
+        ctx.restore();
     }
 
     /**
