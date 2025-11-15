@@ -346,15 +346,100 @@ const TerrainLayers = {
     },
 
     /**
-     * Generate random layers for a hex
+     * Get valid vegetation types for a given height and climate
      *
-     * @returns {Object} Random layer combination
+     * @param {string} heightId - Height layer ID
+     * @param {string} climateId - Climate layer ID
+     * @returns {Array<string>} Array of valid vegetation IDs
+     */
+    getValidVegetation(heightId, climateId) {
+        // Water tiles have no vegetation
+        if (heightId === 'deep_water' || heightId === 'shallow_water') {
+            return ['none'];
+        }
+
+        // Mountains: very limited vegetation
+        if (heightId === 'mountains') {
+            if (climateId === 'hot') {
+                return ['none']; // Hot mountains are barren
+            } else if (climateId === 'moderate') {
+                return ['none', 'grassland']; // Sparse alpine meadows
+            } else if (climateId === 'cold') {
+                return ['none', 'tundra']; // Snow and tundra
+            }
+        }
+
+        // Hills: no swamps (swamps need lowlands)
+        if (heightId === 'hills') {
+            if (climateId === 'hot') {
+                return ['none', 'desert', 'grassland'];
+            } else if (climateId === 'moderate') {
+                return ['none', 'grassland', 'forest'];
+            } else if (climateId === 'cold') {
+                return ['none', 'tundra', 'grassland'];
+            }
+        }
+
+        // Lowlands: most diverse
+        if (heightId === 'lowlands') {
+            if (climateId === 'hot') {
+                return ['none', 'desert', 'grassland', 'forest']; // Hot jungles/forests
+            } else if (climateId === 'moderate') {
+                return ['none', 'grassland', 'forest', 'swamp'];
+            } else if (climateId === 'cold') {
+                return ['none', 'tundra', 'grassland', 'swamp']; // Frozen marshes
+            }
+        }
+
+        // Default fallback
+        return ['none', 'grassland'];
+    },
+
+    /**
+     * Check if a layer combination is valid
+     *
+     * @param {Object} layers - {height, climate, vegetation}
+     * @returns {boolean} True if combination is valid
+     */
+    isValidCombination(layers) {
+        const validVegetation = this.getValidVegetation(layers.height, layers.climate);
+        return validVegetation.includes(layers.vegetation);
+    },
+
+    /**
+     * Generate random layers for a hex (ensuring valid combinations)
+     *
+     * @returns {Object} Random valid layer combination
      */
     generateRandomLayers() {
+        // First, randomly select height and climate
+        const height = this.getWeightedRandomLayer('Height');
+        const climate = this.getWeightedRandomLayer('Climate');
+
+        // Then select vegetation from valid options
+        const validVegetation = this.getValidVegetation(height, climate);
+
+        // Weight the valid vegetation types based on their generation weights
+        const vegetationTypes = validVegetation.map(id =>
+            this.getLayerType('Vegetation', id)
+        ).filter(t => t !== null);
+
+        const totalWeight = vegetationTypes.reduce((sum, t) => sum + (t.generationWeight || 0), 0);
+        let random = Math.random() * totalWeight;
+
+        let vegetation = validVegetation[0]; // Default
+        for (const type of vegetationTypes) {
+            random -= (type.generationWeight || 0);
+            if (random <= 0) {
+                vegetation = type.id;
+                break;
+            }
+        }
+
         return {
-            height: this.getWeightedRandomLayer('Height'),
-            climate: this.getWeightedRandomLayer('Climate'),
-            vegetation: this.getWeightedRandomLayer('Vegetation')
+            height: height,
+            climate: climate,
+            vegetation: vegetation
         };
     },
 
