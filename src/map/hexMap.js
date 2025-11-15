@@ -309,11 +309,69 @@ class HexMap {
 
     /**
      * Get all water-land borders (convenience method)
+     * Works with both old (type string) and new (layered) terrain systems
      *
      * @returns {Array<{hex1: Hex, hex2: Hex, neighborIdx: number, neighborDirection: number}>} Border data
      */
     getWaterLandBorders() {
-        return this.getBorders((type1, type2) => Terrain.shouldDrawBorder(type1, type2));
+        const borders = [];
+        const processedBorders = new Set();
+        const directions = HexMath.getNeighborDirections();
+
+        this.hexes.forEach(hex => {
+            // Get isWater property (works for both systems)
+            const hex1IsWater = this.isHexWater(hex);
+
+            // Check all neighbors
+            for (let neighborIdx = 0; neighborIdx < 6; neighborIdx++) {
+                const dir = directions[neighborIdx];
+                const neighborQ = hex.q + dir.q;
+                const neighborR = hex.r + dir.r;
+                const neighbor = this.getHex(neighborQ, neighborR);
+
+                if (neighbor) {
+                    const hex2IsWater = this.isHexWater(neighbor);
+
+                    // Draw border if one is water and other is land
+                    if ((hex1IsWater && !hex2IsWater) || (!hex1IsWater && hex2IsWater)) {
+                        // Create unique border ID (sorted to avoid duplicates)
+                        const id1 = `${hex.q},${hex.r}`;
+                        const id2 = `${neighborQ},${neighborR}`;
+                        const borderId = id1 < id2 ? `${id1}|${id2}` : `${id2}|${id1}`;
+
+                        // Only add if we haven't processed this border yet
+                        if (!processedBorders.has(borderId)) {
+                            processedBorders.add(borderId);
+
+                            borders.push({
+                                hex1: hex,
+                                hex2: neighbor,
+                                neighborIdx: neighborIdx,
+                                neighborDirection: neighborIdx
+                            });
+                        }
+                    }
+                }
+            }
+        });
+
+        return borders;
+    }
+
+    /**
+     * Check if a hex is water (works with both old and new terrain systems)
+     *
+     * @param {Hex} hex - Hex to check
+     * @returns {boolean} True if water terrain
+     */
+    isHexWater(hex) {
+        if (hex.isLayered) {
+            // New layered system
+            return hex.terrainComposite?.isWater || false;
+        } else {
+            // Old flat system
+            return Terrain.isWater(hex.type);
+        }
     }
 
     /**

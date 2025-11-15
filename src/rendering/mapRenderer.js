@@ -144,6 +144,7 @@ class MapRenderer {
     /**
      * Get all borders for a specific terrain type
      * Returns borders where the hex is the target type and neighbor is different or doesn't exist
+     * NOTE: For layered terrain, this is disabled (returns empty array)
      *
      * @param {string} terrainType - Terrain type to get borders for
      * @returns {Array<{hex1: Hex, hex2: Hex|null, neighborDirection: {q, r}}>} Border data
@@ -154,6 +155,11 @@ class MapRenderer {
 
         // For each hex of the target terrain type
         this.grid.hexes.forEach(hex => {
+            // Skip layered terrain for now (terrain highlighting not yet supported)
+            if (hex.isLayered) {
+                return;
+            }
+
             if (hex.type === terrainType) {
                 // Check all 6 neighbors
                 for (let i = 0; i < 6; i++) {

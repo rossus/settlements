@@ -136,7 +136,8 @@ class Game {
      */
     handleHexHover(data) {
         if (data.hex) {
-            this.updateInfo(`Hex: (${data.hex.q}, ${data.hex.r}) - ${data.hex.type} | Zoom: ${data.zoom.toFixed(2)}x`);
+            const terrainInfo = this.getTerrainDisplayName(data.hex);
+            this.updateInfo(`Hex: (${data.hex.q}, ${data.hex.r}) - ${terrainInfo} | Zoom: ${data.zoom.toFixed(2)}x`);
         } else {
             this.updateInfo(`Zoom: ${data.zoom.toFixed(2)}x - Drag to pan, scroll to zoom`);
         }
@@ -147,8 +148,22 @@ class Game {
      * Handle hex click event from InputController
      */
     handleHexClick(data) {
-        this.updateStatus(`Clicked hex: (${data.hex.q}, ${data.hex.r}) - ${data.hex.type}`);
+        const terrainInfo = this.getTerrainDisplayName(data.hex);
+        this.updateStatus(`Clicked hex: (${data.hex.q}, ${data.hex.r}) - ${terrainInfo}`);
         console.log('Clicked hex:', data.hex);
+    }
+
+    /**
+     * Get display name for terrain (works with both old and new systems)
+     */
+    getTerrainDisplayName(hex) {
+        if (hex.isLayered) {
+            const composite = hex.terrainComposite;
+            return composite ? composite.name : 'Unknown';
+        } else {
+            const terrainDef = Terrain.getType(hex.type);
+            return terrainDef ? terrainDef.name : hex.type;
+        }
     }
 
     /**
