@@ -136,7 +136,7 @@ class MapRenderer {
     }
 
     /**
-     * Draw hill texture (subtle diagonal lines)
+     * Draw hill texture (upward half-circles for rolling hills)
      *
      * @param {CanvasRenderingContext2D} ctx - Canvas context
      * @param {number} centerX - Center X position
@@ -157,19 +157,29 @@ class MapRenderer {
         ctx.closePath();
         ctx.clip();
 
-        // Draw subtle diagonal lines
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+        // Draw upward half-circles (rolling hills)
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
         ctx.lineWidth = 1.5;
 
-        const spacing = hexRadius * 0.3;
-        const lineCount = 4;
+        const arcRadius = hexRadius * 0.35;
+        const spacing = hexRadius * 0.5;
 
-        for (let i = -lineCount; i <= lineCount; i++) {
-            ctx.beginPath();
-            ctx.moveTo(centerX + i * spacing - hexRadius, centerY - hexRadius);
-            ctx.lineTo(centerX + i * spacing + hexRadius, centerY + hexRadius);
-            ctx.stroke();
-        }
+        // Draw two rows of half-circles
+        const rows = [
+            { y: centerY - hexRadius * 0.3, count: 3, offset: 0 },
+            { y: centerY + hexRadius * 0.3, count: 3, offset: spacing * 0.5 }
+        ];
+
+        rows.forEach(row => {
+            for (let i = 0; i < row.count; i++) {
+                const x = centerX - spacing * (row.count - 1) / 2 + i * spacing + row.offset;
+
+                ctx.beginPath();
+                // Draw upward arc (bottom half of circle)
+                ctx.arc(x, row.y, arcRadius, 0, Math.PI, true);
+                ctx.stroke();
+            }
+        });
 
         ctx.restore();
     }
