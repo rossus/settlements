@@ -212,12 +212,14 @@ docs/
 - **Architecture:** 1 file
 - **History:** 5 files
 - **Total Size:** ~90 KB
-- **Last Updated:** 2025-11-14
+- **Last Updated:** 2025-11-16
 
 ---
 
 ## ✨ Recent Updates
 
+- **2025-11-16:** Updated documentation to reflect layered terrain system and constraint-based validation
+- **2025-11-16:** Updated CHANGELOG with recent terrain system improvements
 - **2025-11-14:** Reorganized docs into guides/architecture/history
 - **2025-11-14:** Added auto-versioning guide
 - **2025-11-14:** Added code reusability guide

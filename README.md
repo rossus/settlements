@@ -5,12 +5,13 @@ A hexagonal grid-based strategy game built with vanilla JavaScript and HTML5 Can
 ## Features
 
 - **Hexagonal grid system** using axial coordinates
-- **Multiple terrain types**: Grass, Forest, Water, Mountain, Desert
+- **Layered terrain system**: Independent height, climate, and vegetation layers
+- **Constraint-based generation**: Realistic terrain combinations (no mountain swamps, water vegetation, etc.)
 - **Interactive camera**: Pan (drag) and zoom (scroll)
-- **Procedural generation**: Weighted random terrain distribution
-- **Visual effects**: Sand borders between water and land
+- **Procedural generation**: Weighted random terrain with validation
+- **Visual effects**: Coastline borders, terrain textures (hills, mountains, forests, etc.)
 - **Flexible world sizes**: Tiny, Small, Medium, Large, Huge
-- **Debug mode**: Inspect hex coordinates and terrain types
+- **Debug views**: Landmass, heightmap, climate, and vegetation visualization modes
 
 ## Quick Start
 
@@ -32,7 +33,7 @@ Settlements/
 ├── src/                   # Source code
 │   ├── core/              # Core utilities
 │   │   ├── hexMath.js     # Hexagonal grid mathematics
-│   │   ├── terrain.js     # Terrain type definitions
+│   │   ├── terrainLayers.js # Layered terrain system with constraints
 │   │   └── camera.js      # Viewport management
 │   │
 │   ├── map/               # Map data & generation
@@ -49,9 +50,10 @@ Settlements/
 │   └── game.js            # Main game orchestrator
 │
 └── docs/                  # Documentation
-    ├── REFACTORING_COMPLETE.md
-    ├── REFACTORING_STEP4.md
-    └── REFACTORING_STEP5.md
+    ├── README.md          # Documentation index
+    ├── guides/            # User/developer guides
+    ├── architecture/      # Technical docs
+    └── history/           # Refactoring history
 ```
 
 ## Architecture
@@ -83,7 +85,7 @@ Settlements/
 
 ### Core (src/core/)
 - **hexMath.js** - Pure math functions for hexagonal grids
-- **terrain.js** - Terrain definitions and properties
+- **terrainLayers.js** - Layered terrain system with constraint-based validation
 - **camera.js** - Viewport management
 
 ### Map (src/map/)
@@ -106,7 +108,7 @@ Settlements/
 - **Click**: Select hex
 - **World Size Dropdown**: Change map size
 - **Toggle Grid**: Show/hide grid lines
-- **Debug Mode**: Show hex coordinates
+- **Debug Views**: Landmass, Heightmap, Climate, Vegetation
 - **Reset Map**: Generate new terrain
 
 ## World Sizes
@@ -119,15 +121,35 @@ Settlements/
 | Large | 75 × 60 | 4,500 |
 | Huge | 100 × 80 | 8,000 |
 
-## Terrain Types
+## Terrain System
 
-| Terrain | Color | Distribution | Walkable |
-|---------|-------|--------------|----------|
-| Grass | Green | 40% | ✓ |
-| Forest | Dark Green | 25% | ✓ |
-| Water | Blue | 15% | ✗ |
-| Mountain | Gray | 10% | ✓ |
-| Desert | Yellow | 10% | ✓ |
+Settlements uses a **layered terrain system** where each hex has three independent layers:
+
+### Height Layer
+- **Deep Water** - Ocean depths (blue)
+- **Shallow Water** - Coastal waters (light blue)
+- **Lowlands** - Flat plains (low elevation)
+- **Hills** - Rolling terrain with upward arc texture
+- **Mountains** - High peaks with triangular texture (red in heightmap)
+
+### Climate Layer
+- **Hot** - Tropical/desert climates (orange)
+- **Moderate** - Temperate zones (green)
+- **Cold** - Polar/tundra regions (gray/blue)
+
+### Vegetation Layer
+- **None/Barren** - Rocky or sandy ground (tan)
+- **Grassland** - Open fields (green)
+- **Forest** - Dense woodland with tree texture (dark green)
+- **Swamp** - Wetlands (dark green-brown, lowlands only)
+- **Desert** - Arid sands (yellow, hot/moderate climates only)
+
+### Constraint System
+The terrain generator uses a **constraint-based validation system** to ensure realistic combinations:
+- Water cannot have vegetation (except "none")
+- Swamps only appear in lowlands with moderate/cold climates
+- Deserts only appear in hot/moderate climates on non-water terrain
+- Mountains have limited vegetation options based on climate
 
 ## Design Patterns
 
@@ -140,21 +162,23 @@ Settlements/
 ## Future Enhancements
 
 ### Procedural Generation
-- Perlin noise for natural terrain
-- Rivers and biomes
-- Height maps
+- Perlin noise for natural continent generation
+- River systems flowing from high to low elevation
+- Moisture-based biome refinement
+- Erosion simulation
 
 ### Gameplay
 - Units and buildings
-- Pathfinding
+- Pathfinding (A* algorithm)
 - Combat system
 - Resource management
+- Settlement founding and growth
 
 ### Technical
-- Save/load (serialization ready!)
-- WebGL rendering
-- Touch controls
-- Multiplayer
+- Save/load system (serialization ready!)
+- WebGL rendering option
+- Touch controls for mobile
+- Multiplayer support
 
 ## Browser Compatibility
 
