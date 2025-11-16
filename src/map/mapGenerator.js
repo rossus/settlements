@@ -22,27 +22,40 @@ class MapGenerator {
         // Extract options
         const seed = options.seed || Math.random();
         const algorithm = options.algorithm || 'random';
+        const useLayers = options.useLayers !== false; // Default to true
 
         // Choose generation algorithm
-        switch (algorithm) {
-            case 'random':
-                this.fillRandomTerrain(map, width, height, orientation);
-                break;
-            case 'perlin':
-                this.fillPerlinNoise(map, width, height, orientation, seed);
-                break;
-            case 'continents':
-                this.fillContinents(map, width, height, orientation, seed);
-                break;
-            default:
-                this.fillRandomTerrain(map, width, height, orientation);
+        if (useLayers) {
+            // New layered system
+            switch (algorithm) {
+                case 'random':
+                    this.fillRandomLayeredTerrain(map, width, height, orientation);
+                    break;
+                default:
+                    this.fillRandomLayeredTerrain(map, width, height, orientation);
+            }
+        } else {
+            // Old flat system (backward compatibility)
+            switch (algorithm) {
+                case 'random':
+                    this.fillRandomTerrain(map, width, height, orientation);
+                    break;
+                case 'perlin':
+                    this.fillPerlinNoise(map, width, height, orientation, seed);
+                    break;
+                case 'continents':
+                    this.fillContinents(map, width, height, orientation, seed);
+                    break;
+                default:
+                    this.fillRandomTerrain(map, width, height, orientation);
+            }
         }
 
         return map;
     }
 
     /**
-     * Fill map with weighted random terrain
+     * Fill map with weighted random terrain (OLD SYSTEM - for backward compatibility)
      *
      * @param {HexMap} map - Map to fill
      * @param {number} width - Width in hexagons
@@ -58,6 +71,30 @@ class MapGenerator {
                 // Randomly assign terrain type using weighted distribution
                 const randomType = Terrain.getWeightedRandomType();
                 const hex = new Hex(axial.q, axial.r, randomType);
+
+                map.setHex(hex);
+            }
+        }
+    }
+
+    /**
+     * Fill map with layered terrain (NEW SYSTEM)
+     * Generates height, climate, and vegetation layers independently
+     *
+     * @param {HexMap} map - Map to fill
+     * @param {number} width - Width in hexagons
+     * @param {number} height - Height in hexagons
+     * @param {string} orientation - Hexagon orientation
+     */
+    static fillRandomLayeredTerrain(map, width, height, orientation) {
+        for (let row = 0; row < height; row++) {
+            for (let col = 0; col < width; col++) {
+                // Convert offset coordinates to axial coordinates
+                const axial = HexMath.offsetToAxial(col, row, orientation);
+
+                // Generate random layers
+                const layers = TerrainLayers.generateRandomLayers();
+                const hex = new Hex(axial.q, axial.r, layers);
 
                 map.setHex(hex);
             }

@@ -18,23 +18,37 @@ class MapRenderer {
      * @param {number} offsetY - Y offset for rendering
      * @param {Hex} highlightHex - Hex to highlight (optional)
      * @param {boolean} showGrid - Whether to show grid lines
-     * @param {string} highlightTerrainType - Terrain type to highlight (null if disabled)
+     * @param {string} debugView - Debug view mode: null, 'landmass', or 'heightmap'
      */
-    render(ctx, offsetX = 0, offsetY = 0, highlightHex = null, showGrid = true, highlightTerrainType = null) {
+    render(ctx, offsetX = 0, offsetY = 0, highlightHex = null, showGrid = true, debugView = null) {
+        // Debug views render differently
+        if (debugView === 'landmass') {
+            this.renderDebugLandmass(ctx, offsetX, offsetY, highlightHex, showGrid);
+            return;
+        } else if (debugView === 'heightmap') {
+            this.renderDebugHeightmap(ctx, offsetX, offsetY, highlightHex, showGrid);
+            return;
+        } else if (debugView === 'climate') {
+            this.renderDebugClimate(ctx, offsetX, offsetY, highlightHex, showGrid);
+            return;
+        } else if (debugView === 'vegetation') {
+            this.renderDebugVegetation(ctx, offsetX, offsetY, highlightHex, showGrid);
+            return;
+        }
+
+        // Normal rendering
         // First pass: draw all hexagon fills
         this.renderHexagonFills(ctx, offsetX, offsetY, highlightHex);
 
-        // Second pass: draw sand borders between water and land
+        // Second pass: draw terrain textures (hills, mountains)
+        this.renderTerrainTextures(ctx, offsetX, offsetY);
+
+        // Third pass: draw sand borders between water and land
         this.renderSandBorders(ctx, offsetX, offsetY);
 
-        // Third pass: draw grid lines on top of sand borders
+        // Fourth pass: draw grid lines on top of sand borders
         if (showGrid) {
             this.renderGridLines(ctx, offsetX, offsetY);
-        }
-
-        // Fourth pass: draw terrain type highlighting if enabled
-        if (highlightTerrainType) {
-            this.renderTerrainHighlight(ctx, offsetX, offsetY, highlightTerrainType);
         }
     }
 
@@ -61,8 +75,8 @@ class MapRenderer {
             }
             ctx.closePath();
 
-            // Fill with terrain color
-            ctx.fillStyle = Terrain.getColor(hex.type);
+            // Fill with terrain color (supports both old and new systems)
+            ctx.fillStyle = this.getTerrainColor(hex);
             ctx.fill();
 
             // Highlight if this is the hovered hex
@@ -103,6 +117,134 @@ class MapRenderer {
     }
 
     /**
+     * Render terrain textures (hills and mountains)
+     *
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} offsetX - X offset
+     * @param {number} offsetY - Y offset
+     */
+    renderTerrainTextures(ctx, offsetX, offsetY) {
+        this.grid.hexes.forEach(hex => {
+            // Only render textures for layered terrain with elevation
+            if (!hex.isLayered || !hex.layers) return;
+
+            const heightLayer = hex.layers.height;
+
+            // Skip if not hills or mountains
+            if (heightLayer !== 'hills' && heightLayer !== 'mountains') return;
+
+            const pixel = this.grid.hexToPixel(hex);
+            const centerX = pixel.x + offsetX;
+            const centerY = pixel.y + offsetY;
+            const corners = this.grid.getHexCorners(centerX, centerY);
+
+            if (heightLayer === 'hills') {
+                this.drawHillTexture(ctx, centerX, centerY, corners);
+            } else if (heightLayer === 'mountains') {
+                this.drawMountainTexture(ctx, centerX, centerY, corners);
+            }
+        });
+    }
+
+    /**
+     * Draw hill texture (upward half-circles for rolling hills)
+     *
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} centerX - Center X position
+     * @param {number} centerY - Center Y position
+     * @param {Array} corners - Hex corner positions
+     */
+    drawHillTexture(ctx, centerX, centerY, corners) {
+        const hexRadius = this.grid.hexSize;
+
+        ctx.save();
+
+        // Clip to hex shape
+        ctx.beginPath();
+        ctx.moveTo(corners[0].x, corners[0].y);
+        for (let i = 1; i < corners.length; i++) {
+            ctx.lineTo(corners[i].x, corners[i].y);
+        }
+        ctx.closePath();
+        ctx.clip();
+
+        // Draw upward half-circles (rolling hills)
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.lineWidth = 1.5;
+
+        const arcRadius = hexRadius * 0.35;
+        const spacing = hexRadius * 0.5;
+
+        // Draw two rows of half-circles
+        const rows = [
+            { y: centerY - hexRadius * 0.3, count: 3, offset: 0 },
+            { y: centerY + hexRadius * 0.3, count: 3, offset: spacing * 0.5 }
+        ];
+
+        rows.forEach(row => {
+            for (let i = 0; i < row.count; i++) {
+                const x = centerX - spacing * (row.count - 1) / 2 + i * spacing + row.offset;
+
+                ctx.beginPath();
+                // Draw upward arc (bottom half of circle)
+                ctx.arc(x, row.y, arcRadius, 0, Math.PI, true);
+                ctx.stroke();
+            }
+        });
+
+        ctx.restore();
+    }
+
+    /**
+     * Draw mountain texture (triangular peaks)
+     *
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} centerX - Center X position
+     * @param {number} centerY - Center Y position
+     * @param {Array} corners - Hex corner positions
+     */
+    drawMountainTexture(ctx, centerX, centerY, corners) {
+        const hexRadius = this.grid.hexSize;
+
+        ctx.save();
+
+        // Clip to hex shape
+        ctx.beginPath();
+        ctx.moveTo(corners[0].x, corners[0].y);
+        for (let i = 1; i < corners.length; i++) {
+            ctx.lineTo(corners[i].x, corners[i].y);
+        }
+        ctx.closePath();
+        ctx.clip();
+
+        // Draw multiple small triangular peaks
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+        ctx.lineWidth = 1.5;
+        ctx.lineJoin = 'miter';
+
+        const peakSize = hexRadius * 0.4;
+        const positions = [
+            { x: 0, y: -peakSize * 0.3 },
+            { x: -peakSize * 0.6, y: peakSize * 0.4 },
+            { x: peakSize * 0.6, y: peakSize * 0.4 }
+        ];
+
+        positions.forEach(pos => {
+            ctx.beginPath();
+            ctx.moveTo(centerX + pos.x, centerY + pos.y + peakSize * 0.5);
+            ctx.lineTo(centerX + pos.x - peakSize * 0.4, centerY + pos.y + peakSize * 0.5);
+            ctx.lineTo(centerX + pos.x, centerY + pos.y - peakSize * 0.5);
+            ctx.lineTo(centerX + pos.x + peakSize * 0.4, centerY + pos.y + peakSize * 0.5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+        });
+
+        ctx.restore();
+    }
+
+    /**
      * Render sand borders between water and land tiles
      *
      * @param {CanvasRenderingContext2D} ctx - Canvas context
@@ -121,63 +263,6 @@ class MapRenderer {
         });
     }
 
-    /**
-     * Render terrain type highlighting - draws red borders around all hexes of a specific terrain type
-     *
-     * @param {CanvasRenderingContext2D} ctx - Canvas context
-     * @param {number} offsetX - X offset
-     * @param {number} offsetY - Y offset
-     * @param {string} terrainType - Terrain type to highlight
-     */
-    renderTerrainHighlight(ctx, offsetX, offsetY, terrainType) {
-        // Get all borders for this terrain type
-        const borders = this.getBordersForTerrain(terrainType);
-
-        // Render using generic border renderer
-        this.renderBorders(ctx, offsetX, offsetY, borders, {
-            strokeStyle: '#e74c3c',
-            lineWidth: 4,
-            lineCap: 'round'
-        });
-    }
-
-    /**
-     * Get all borders for a specific terrain type
-     * Returns borders where the hex is the target type and neighbor is different or doesn't exist
-     *
-     * @param {string} terrainType - Terrain type to get borders for
-     * @returns {Array<{hex1: Hex, hex2: Hex|null, neighborDirection: {q, r}}>} Border data
-     */
-    getBordersForTerrain(terrainType) {
-        const borders = [];
-        const neighborDirections = HexMath.getNeighborDirections();
-
-        // For each hex of the target terrain type
-        this.grid.hexes.forEach(hex => {
-            if (hex.type === terrainType) {
-                // Check all 6 neighbors
-                for (let i = 0; i < 6; i++) {
-                    const dir = neighborDirections[i];
-                    const neighborQ = hex.q + dir.q;
-                    const neighborR = hex.r + dir.r;
-                    const neighbor = this.grid.getHex(neighborQ, neighborR);
-
-                    // Add border if:
-                    // 1. No neighbor exists (map edge), OR
-                    // 2. Neighbor is different terrain type
-                    if (!neighbor || neighbor.type !== terrainType) {
-                        borders.push({
-                            hex1: hex,
-                            hex2: neighbor,        // null for map edges
-                            neighborDirection: dir // direction vector to (missing) neighbor
-                        });
-                    }
-                }
-            }
-        });
-
-        return borders;
-    }
 
     /**
      * Generic border renderer - draws borders between hex pairs using geometric calculation
@@ -287,6 +372,280 @@ class MapRenderer {
             corner1: corners[edgeIndex],
             corner2: corners[(edgeIndex + 1) % 6]
         };
+    }
+
+    /**
+     * Render debug view: Landmass (water vs land)
+     * Shows all water in blue, all land in pale yellow-brown
+     *
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} offsetX - X offset
+     * @param {number} offsetY - Y offset
+     * @param {Hex} highlightHex - Hex to highlight (optional)
+     * @param {boolean} showGrid - Whether to show grid lines
+     */
+    renderDebugLandmass(ctx, offsetX, offsetY, highlightHex, showGrid) {
+        const WATER_COLOR = '#3498db';  // Blue
+        const LAND_COLOR = '#d4c4a0';   // Pale yellow-brown
+
+        this.grid.hexes.forEach(hex => {
+            const pixel = this.grid.hexToPixel(hex);
+            const centerX = pixel.x + offsetX;
+            const centerY = pixel.y + offsetY;
+            const corners = this.grid.getHexCorners(centerX, centerY);
+
+            // Draw hexagon shape
+            ctx.beginPath();
+            ctx.moveTo(corners[0].x, corners[0].y);
+            for (let i = 1; i < corners.length; i++) {
+                ctx.lineTo(corners[i].x, corners[i].y);
+            }
+            ctx.closePath();
+
+            // Fill with water or land color
+            const isWater = this.grid.isHexWater(hex);
+            ctx.fillStyle = isWater ? WATER_COLOR : LAND_COLOR;
+            ctx.fill();
+
+            // Highlight if this is the hovered hex
+            if (highlightHex && hex.equals(highlightHex)) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.fill();
+            }
+        });
+
+        // Draw grid lines if enabled
+        if (showGrid) {
+            this.renderGridLines(ctx, offsetX, offsetY);
+        }
+    }
+
+    /**
+     * Render debug view: Heightmap (elevation levels)
+     * Colors tiles based on their height layer
+     *
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} offsetX - X offset
+     * @param {number} offsetY - Y offset
+     * @param {Hex} highlightHex - Hex to highlight (optional)
+     * @param {boolean} showGrid - Whether to show grid lines
+     */
+    renderDebugHeightmap(ctx, offsetX, offsetY, highlightHex, showGrid) {
+        // Height colors (from low to high elevation)
+        const HEIGHT_COLORS = {
+            'deep_water': '#1a5490',      // Dark blue (-2)
+            'shallow_water': '#3498db',   // Light blue (-1)
+            'lowlands': '#2ecc71',        // Green (0)
+            'hills': '#f39c12',           // Orange (+1)
+            'mountains': '#e74c3c'        // Red (+2)
+        };
+
+        this.grid.hexes.forEach(hex => {
+            const pixel = this.grid.hexToPixel(hex);
+            const centerX = pixel.x + offsetX;
+            const centerY = pixel.y + offsetY;
+            const corners = this.grid.getHexCorners(centerX, centerY);
+
+            // Draw hexagon shape
+            ctx.beginPath();
+            ctx.moveTo(corners[0].x, corners[0].y);
+            for (let i = 1; i < corners.length; i++) {
+                ctx.lineTo(corners[i].x, corners[i].y);
+            }
+            ctx.closePath();
+
+            // Get height layer and color
+            let heightColor = '#888888'; // Default gray
+            if (hex.isLayered && hex.layers && hex.layers.height) {
+                heightColor = HEIGHT_COLORS[hex.layers.height] || heightColor;
+            } else {
+                // Old system fallback - approximate from terrain type
+                const isWater = this.grid.isHexWater(hex);
+                heightColor = isWater ? HEIGHT_COLORS['deep_water'] : HEIGHT_COLORS['lowlands'];
+            }
+
+            ctx.fillStyle = heightColor;
+            ctx.fill();
+
+            // Highlight if this is the hovered hex
+            if (highlightHex && hex.equals(highlightHex)) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.fill();
+            }
+        });
+
+        // Draw grid lines if enabled
+        if (showGrid) {
+            this.renderGridLines(ctx, offsetX, offsetY);
+        }
+    }
+
+    /**
+     * Render debug view: Climate (temperature zones)
+     * Colors tiles based on their climate layer
+     *
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} offsetX - X offset
+     * @param {number} offsetY - Y offset
+     * @param {Hex} highlightHex - Hex to highlight (optional)
+     * @param {boolean} showGrid - Whether to show grid lines
+     */
+    renderDebugClimate(ctx, offsetX, offsetY, highlightHex, showGrid) {
+        // Climate colors for land
+        const CLIMATE_COLORS = {
+            'hot': '#e67e22',       // Orange
+            'moderate': '#27ae60',  // Green
+            'cold': '#95a5a6'       // Gray
+        };
+
+        // Climate colors for water (slightly different shades)
+        const CLIMATE_COLORS_WATER = {
+            'hot': '#d35400',       // Darker orange (warm water)
+            'moderate': '#1e8449',  // Dark green (normal water)
+            'cold': '#2874a6'       // Dark blue (cold water)
+        };
+
+        this.grid.hexes.forEach(hex => {
+            const pixel = this.grid.hexToPixel(hex);
+            const centerX = pixel.x + offsetX;
+            const centerY = pixel.y + offsetY;
+            const corners = this.grid.getHexCorners(centerX, centerY);
+
+            // Draw hexagon shape
+            ctx.beginPath();
+            ctx.moveTo(corners[0].x, corners[0].y);
+            for (let i = 1; i < corners.length; i++) {
+                ctx.lineTo(corners[i].x, corners[i].y);
+            }
+            ctx.closePath();
+
+            // Check if water
+            const isWater = this.grid.isHexWater(hex);
+
+            // Get climate layer and color
+            let climateColor = '#888888'; // Default gray
+            if (hex.isLayered && hex.layers && hex.layers.climate) {
+                const colorPalette = isWater ? CLIMATE_COLORS_WATER : CLIMATE_COLORS;
+                climateColor = colorPalette[hex.layers.climate] || climateColor;
+            } else {
+                // Old system - all moderate
+                const colorPalette = isWater ? CLIMATE_COLORS_WATER : CLIMATE_COLORS;
+                climateColor = colorPalette['moderate'];
+            }
+
+            ctx.fillStyle = climateColor;
+            ctx.fill();
+
+            // Highlight if this is the hovered hex
+            if (highlightHex && hex.equals(highlightHex)) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.fill();
+            }
+        });
+
+        // Draw grid lines if enabled
+        if (showGrid) {
+            this.renderGridLines(ctx, offsetX, offsetY);
+        }
+    }
+
+    /**
+     * Render debug view: Vegetation (surface types)
+     * Colors tiles based on their vegetation layer
+     *
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} offsetX - X offset
+     * @param {number} offsetY - Y offset
+     * @param {Hex} highlightHex - Hex to highlight (optional)
+     * @param {boolean} showGrid - Whether to show grid lines
+     */
+    renderDebugVegetation(ctx, offsetX, offsetY, highlightHex, showGrid) {
+        // Vegetation colors (from TerrainLayers)
+        const VEGETATION_COLORS = {
+            'none': '#b8a896',      // Barren
+            'grassland': '#7ec850', // Green
+            'forest': '#228b22',    // Dark green
+            'desert': '#f4e4a6',    // Sandy
+            'tundra': '#b8d4e0',    // Icy
+            'swamp': '#4a5d3e'      // Dark murky
+        };
+
+        const WATER_COLOR = '#3498db'; // Blue for water
+
+        this.grid.hexes.forEach(hex => {
+            const pixel = this.grid.hexToPixel(hex);
+            const centerX = pixel.x + offsetX;
+            const centerY = pixel.y + offsetY;
+            const corners = this.grid.getHexCorners(centerX, centerY);
+
+            // Draw hexagon shape
+            ctx.beginPath();
+            ctx.moveTo(corners[0].x, corners[0].y);
+            for (let i = 1; i < corners.length; i++) {
+                ctx.lineTo(corners[i].x, corners[i].y);
+            }
+            ctx.closePath();
+
+            // Check if water - if so, show blue
+            const isWater = this.grid.isHexWater(hex);
+            if (isWater) {
+                ctx.fillStyle = WATER_COLOR;
+                ctx.fill();
+            } else {
+                // Get vegetation layer and color for land tiles
+                let vegetationColor = '#888888'; // Default gray
+                if (hex.isLayered && hex.layers && hex.layers.vegetation) {
+                    vegetationColor = VEGETATION_COLORS[hex.layers.vegetation] || vegetationColor;
+                } else {
+                    // Old system - approximate from terrain type
+                    const terrainType = hex.type;
+                    if (terrainType === 'grass' || terrainType === 'plains') {
+                        vegetationColor = VEGETATION_COLORS['grassland'];
+                    } else if (terrainType === 'forest') {
+                        vegetationColor = VEGETATION_COLORS['forest'];
+                    } else if (terrainType === 'desert') {
+                        vegetationColor = VEGETATION_COLORS['desert'];
+                    } else if (terrainType === 'tundra') {
+                        vegetationColor = VEGETATION_COLORS['tundra'];
+                    } else if (terrainType === 'swamp') {
+                        vegetationColor = VEGETATION_COLORS['swamp'];
+                    } else {
+                        vegetationColor = VEGETATION_COLORS['none'];
+                    }
+                }
+
+                ctx.fillStyle = vegetationColor;
+                ctx.fill();
+            }
+
+            // Highlight if this is the hovered hex
+            if (highlightHex && hex.equals(highlightHex)) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.fill();
+            }
+        });
+
+        // Draw grid lines if enabled
+        if (showGrid) {
+            this.renderGridLines(ctx, offsetX, offsetY);
+        }
+    }
+
+    /**
+     * Get terrain color for a hex (supports both old and new terrain systems)
+     *
+     * @param {Hex} hex - Hex to get color for
+     * @returns {string} Hex color code
+     */
+    getTerrainColor(hex) {
+        if (hex.isLayered) {
+            // New layered system
+            const composite = hex.terrainComposite;
+            return composite ? composite.color : Terrain.Colors.DEFAULT;
+        } else {
+            // Old flat system
+            return Terrain.getColor(hex.type);
+        }
     }
 
     /**

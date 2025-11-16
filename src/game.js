@@ -37,8 +37,7 @@ class Game {
 
         // Display settings
         this.showGrid = true;
-        this.debugMode = false;
-        this.highlightTerrainType = null;
+        this.debugView = null; // null, 'landmass', or 'heightmap'
 
         this.init();
     }
@@ -65,9 +64,6 @@ class Game {
             onResize: () => this.handleResize()
         });
 
-        // Populate terrain type selector from Terrain.Types
-        this.populateTerrainSelector();
-
         // Setup UI event listeners (buttons, dropdowns)
         this.setupUIListeners();
 
@@ -89,26 +85,6 @@ class Game {
         this.camera.setCanvasSize(this.canvasWidth, this.canvasHeight);
     }
 
-    /**
-     * Populate terrain type selector from Terrain.Types
-     * This makes the selector automatically update when new terrain types are added
-     */
-    populateTerrainSelector() {
-        const select = document.getElementById('terrainTypeSelect');
-
-        // Get all terrain types and sort alphabetically by name
-        const terrainTypes = Object.values(Terrain.Types).sort((a, b) =>
-            a.name.localeCompare(b.name)
-        );
-
-        // Add option for each terrain type
-        terrainTypes.forEach(type => {
-            const option = document.createElement('option');
-            option.value = type.id;
-            option.textContent = type.name;
-            select.appendChild(option);
-        });
-    }
 
     /**
      * Setup UI event listeners (buttons, dropdowns, etc.)
@@ -121,11 +97,8 @@ class Game {
         // Toggle grid button
         document.getElementById('toggleGridBtn').addEventListener('click', () => this.toggleGrid());
 
-        // Debug button
-        document.getElementById('debugBtn').addEventListener('click', () => this.toggleDebug());
-
-        // Terrain type selector
-        document.getElementById('terrainTypeSelect').addEventListener('change', (e) => this.selectTerrainType(e.target.value));
+        // Debug view selector
+        document.getElementById('debugViewSelect').addEventListener('change', (e) => this.changeDebugView(e.target.value));
 
         // Reset button
         document.getElementById('resetBtn').addEventListener('click', () => this.reset());
@@ -136,7 +109,8 @@ class Game {
      */
     handleHexHover(data) {
         if (data.hex) {
-            this.updateInfo(`Hex: (${data.hex.q}, ${data.hex.r}) - ${data.hex.type} | Zoom: ${data.zoom.toFixed(2)}x`);
+            const terrainInfo = this.getTerrainDisplayName(data.hex);
+            this.updateInfo(`Hex: (${data.hex.q}, ${data.hex.r}) - ${terrainInfo} | Zoom: ${data.zoom.toFixed(2)}x`);
         } else {
             this.updateInfo(`Zoom: ${data.zoom.toFixed(2)}x - Drag to pan, scroll to zoom`);
         }
@@ -147,8 +121,22 @@ class Game {
      * Handle hex click event from InputController
      */
     handleHexClick(data) {
-        this.updateStatus(`Clicked hex: (${data.hex.q}, ${data.hex.r}) - ${data.hex.type}`);
+        const terrainInfo = this.getTerrainDisplayName(data.hex);
+        this.updateStatus(`Clicked hex: (${data.hex.q}, ${data.hex.r}) - ${terrainInfo}`);
         console.log('Clicked hex:', data.hex);
+    }
+
+    /**
+     * Get display name for terrain (works with both old and new systems)
+     */
+    getTerrainDisplayName(hex) {
+        if (hex.isLayered) {
+            const composite = hex.terrainComposite;
+            return composite ? composite.name : 'Unknown';
+        } else {
+            const terrainDef = Terrain.getType(hex.type);
+            return terrainDef ? terrainDef.name : hex.type;
+        }
     }
 
     /**
@@ -208,40 +196,22 @@ class Game {
     }
 
     /**
-     * Toggle debug mode
+     * Change debug view mode
      */
-    toggleDebug() {
-        this.debugMode = !this.debugMode;
-        const btn = document.getElementById('debugBtn');
-        const terrainSelect = document.getElementById('terrainTypeSelect');
-
-        btn.textContent = this.debugMode ? 'Debug Mode: On' : 'Debug Mode: Off';
-
-        // Show/hide terrain type selector
-        if (this.debugMode) {
-            terrainSelect.style.display = 'inline-block';
-            this.updateStatus('Debug mode enabled - Select terrain type to highlight');
-        } else {
-            terrainSelect.style.display = 'none';
-            terrainSelect.value = ''; // Reset selection
-            this.highlightTerrainType = null;
-            this.updateStatus('Debug mode disabled');
-        }
-
-        this.render();
-    }
-
-    /**
-     * Select terrain type to highlight
-     */
-    selectTerrainType(terrainType) {
-        this.highlightTerrainType = terrainType || null;
+    changeDebugView(view) {
+        this.debugView = view || null;
         this.render();
 
-        if (terrainType) {
-            this.updateStatus(`Highlighting ${terrainType} tiles`);
+        if (view === 'landmass') {
+            this.updateStatus('Debug view: Landmass (water vs land)');
+        } else if (view === 'heightmap') {
+            this.updateStatus('Debug view: Heightmap (elevation levels)');
+        } else if (view === 'climate') {
+            this.updateStatus('Debug view: Climate (temperature zones)');
+        } else if (view === 'vegetation') {
+            this.updateStatus('Debug view: Vegetation (surface types)');
         } else {
-            this.updateStatus('No terrain type selected');
+            this.updateStatus('Debug view disabled');
         }
     }
 
@@ -262,7 +232,7 @@ class Game {
         const hoveredHex = this.inputController ? this.inputController.getHoveredHex() : null;
 
         // Render grid at origin (camera transform handles positioning)
-        this.renderer.render(this.ctx, 0, 0, hoveredHex, this.showGrid, this.highlightTerrainType);
+        this.renderer.render(this.ctx, 0, 0, hoveredHex, this.showGrid, this.debugView);
 
         // Restore context state
         this.ctx.restore();

@@ -105,6 +105,13 @@ class HexGrid {
     }
 
     /**
+     * Check if a hex is water (works with both old and new terrain systems)
+     */
+    isHexWater(hex) {
+        return this.map.isHexWater(hex);
+    }
+
+    /**
      * Get neighbors of a hex that exist in the grid
      */
     getNeighbors(hex) {
