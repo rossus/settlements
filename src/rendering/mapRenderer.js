@@ -495,7 +495,7 @@ class MapRenderer {
         const CLIMATE_COLORS = {
             'hot': '#e67e22',       // Orange
             'moderate': '#27ae60',  // Green
-            'cold': '#3498db'       // Blue
+            'cold': '#95a5a6'       // Gray
         };
 
         // Climate colors for water (slightly different shades)
