@@ -8,10 +8,12 @@ Complete documentation for the Settlements hexagonal grid-based strategy game.
 
 **User and developer guides for working with the project:**
 
-- **[Auto Versioning Guide](guides/auto-versioning.md)** - Automatic semantic versioning system
-  - How automatic versioning works
-  - Conventional commit format
-  - Examples and troubleshooting
+- **[Extending Terrain System](guides/extending-terrain.md)** - How to add new layers and terrain types
+  - Understanding the layered system
+  - Adding new types to existing layers
+  - Adding completely new layers
+  - Constraint system reference
+  - Testing and examples
 
 - **[Code Reusability Guide](guides/code-reusability.md)** - Reusing code in other projects
   - What's reusable now
@@ -25,6 +27,11 @@ Complete documentation for the Settlements hexagonal grid-based strategy game.
   - Release process
   - Best practices
 
+- **[Auto Versioning Guide](guides/auto-versioning.md)** - Automatic semantic versioning system
+  - How automatic versioning works
+  - Conventional commit format
+  - Examples and troubleshooting
+
 ### 🏗️ Architecture
 
 **Technical documentation about project structure:**
@@ -34,20 +41,6 @@ Complete documentation for the Settlements hexagonal grid-based strategy game.
   - Organization principles
   - Dependency graph
   - Adding new features
-
-### 📜 History
-
-**Historical documentation from the refactoring process:**
-
-- **[Refactoring Complete](history/refactoring-complete.md)** - Complete refactoring overview
-  - Full summary of all refactoring steps
-  - Before/after comparison
-  - Benefits achieved
-
-- [Refactoring Plan](history/refactoring-plan.md) - Original refactoring plan
-- [Refactoring Step 4](history/refactoring-step4.md) - MapRenderer extraction
-- [Refactoring Step 5](history/refactoring-step5.md) - HexMap & MapGenerator extraction
-- [Refactoring Summary](history/refactoring-summary.md) - Interim summary
 
 ---
 
@@ -63,8 +56,8 @@ Complete documentation for the Settlements hexagonal grid-based strategy game.
 
 1. **Setup Git:** Read [Git Workflow Guide](guides/git-workflow.md)
 2. **Understand Structure:** Read [Folder Structure](architecture/folder-structure.md)
-3. **Learn Versioning:** Read [Auto Versioning Guide](guides/auto-versioning.md)
-4. **Reuse Code:** Read [Code Reusability Guide](guides/code-reusability.md)
+3. **Extend Terrain:** Read [Extending Terrain System](guides/extending-terrain.md)
+4. **Learn Versioning:** Read [Auto Versioning Guide](guides/auto-versioning.md)
 
 ### For Contributors
 
@@ -82,24 +75,23 @@ docs/
 ├── README.md                          # This file - documentation index
 │
 ├── guides/                            # User/developer guides
-│   ├── auto-versioning.md             # Automatic versioning system
+│   ├── extending-terrain.md           # How to add layers and types
 │   ├── code-reusability.md            # Reusing code elsewhere
-│   └── git-workflow.md                # Version control guide
+│   ├── git-workflow.md                # Version control guide
+│   └── auto-versioning.md             # Automatic versioning system
 │
-├── architecture/                      # Technical architecture
-│   └── folder-structure.md            # Project organization
-│
-└── history/                           # Refactoring history
-    ├── refactoring-complete.md        # Complete overview
-    ├── refactoring-plan.md            # Original plan
-    ├── refactoring-step4.md           # Step 4 details
-    ├── refactoring-step5.md           # Step 5 details
-    └── refactoring-summary.md         # Interim summary
+└── architecture/                      # Technical architecture
+    └── folder-structure.md            # Project organization
 ```
 
 ---
 
 ## 🎯 Documentation by Topic
+
+### Extending the Game
+
+- [Extending Terrain System](guides/extending-terrain.md) - Add new layers and terrain types
+- [Folder Structure](architecture/folder-structure.md) - Add new modules and features
 
 ### Version Control & Releases
 
@@ -109,17 +101,11 @@ docs/
 ### Code Organization
 
 - [Folder Structure](architecture/folder-structure.md) - How code is organized
-- [Refactoring Complete](history/refactoring-complete.md) - How we got here
 
 ### Code Reuse
 
 - [Code Reusability Guide](guides/code-reusability.md) - Using code elsewhere
 - See also: [examples/](../examples/) folder for working demos
-
-### Project History
-
-- [Refactoring Complete](history/refactoring-complete.md) - Full story
-- All files in [history/](history/) folder
 
 ---
 
@@ -151,7 +137,6 @@ docs/
 1. Determine category:
    - **guides/** - User/developer guides
    - **architecture/** - Technical docs
-   - **history/** - Historical records
 
 2. Create file:
    ```bash
@@ -182,6 +167,12 @@ docs/
 
 ### I want to...
 
+**...add a new terrain type**
+→ [Extending Terrain System](guides/extending-terrain.md)
+
+**...add a new layer (like moisture)**
+→ [Extending Terrain System](guides/extending-terrain.md)
+
 **...understand the project structure**
 → [Folder Structure](architecture/folder-structure.md)
 
@@ -194,9 +185,6 @@ docs/
 **...understand version numbers**
 → [Auto Versioning Guide](guides/auto-versioning.md)
 
-**...learn how the refactoring was done**
-→ [Refactoring Complete](history/refactoring-complete.md)
-
 **...create a pull request**
 → [Git Workflow Guide](guides/git-workflow.md) (sections on PRs)
 
@@ -207,23 +195,20 @@ docs/
 
 ## 📊 Documentation Stats
 
-- **Total Docs:** 9 files
-- **Guides:** 3 files
+- **Total Docs:** 6 files
+- **Guides:** 4 files
 - **Architecture:** 1 file
-- **History:** 5 files
-- **Total Size:** ~90 KB
 - **Last Updated:** 2025-11-16
 
 ---
 
 ## ✨ Recent Updates
 
-- **2025-11-16:** Updated documentation to reflect layered terrain system and constraint-based validation
-- **2025-11-16:** Updated CHANGELOG with recent terrain system improvements
-- **2025-11-14:** Reorganized docs into guides/architecture/history
-- **2025-11-14:** Added auto-versioning guide
-- **2025-11-14:** Added code reusability guide
-- **2025-11-14:** Created folder structure documentation
+- **2025-11-16:** Added comprehensive guide for extending terrain system
+- **2025-11-16:** Removed outdated refactoring history documentation
+- **2025-11-16:** Updated all docs to reflect layered terrain system and constraint-based validation
+- **2025-11-14:** Reorganized docs into guides/architecture structure
+- **2025-11-14:** Added auto-versioning and code reusability guides
 
 ---
 

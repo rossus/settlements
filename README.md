@@ -213,16 +213,13 @@ See [`docs/guides/auto-versioning.md`](docs/guides/auto-versioning.md) for compl
 ### Quick Links
 
 **Guides:**
+- [Extending Terrain System](docs/guides/extending-terrain.md) - Add new layers and terrain types
 - [Auto Versioning](docs/guides/auto-versioning.md) - Automatic semantic versioning
 - [Code Reusability](docs/guides/code-reusability.md) - Reusing code in other projects
 - [Git Workflow](docs/guides/git-workflow.md) - Version control and collaboration
 
 **Architecture:**
 - [Folder Structure](docs/architecture/folder-structure.md) - Project organization
-
-**History:**
-- [Refactoring Complete](docs/history/refactoring-complete.md) - Complete refactoring story
-- [All History Docs](docs/history/) - Detailed refactoring steps
 
 **Examples:**
 - [`examples/reuse-hexmath.html`](examples/reuse-hexmath.html) - Using hexMath in another game
