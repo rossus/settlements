@@ -494,14 +494,14 @@ class MapRenderer {
         // Climate colors for land
         const CLIMATE_COLORS = {
             'hot': '#e67e22',       // Orange
-            'moderate': '#95a5a6',  // Gray
+            'moderate': '#27ae60',  // Green
             'cold': '#3498db'       // Blue
         };
 
         // Climate colors for water (slightly different shades)
         const CLIMATE_COLORS_WATER = {
             'hot': '#d35400',       // Darker orange (warm water)
-            'moderate': '#5499c7',  // Blue-gray (normal water)
+            'moderate': '#16a085',  // Teal (normal water)
             'cold': '#2874a6'       // Dark blue (cold water)
         };
 
