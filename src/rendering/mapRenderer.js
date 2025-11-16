@@ -491,11 +491,18 @@ class MapRenderer {
      * @param {boolean} showGrid - Whether to show grid lines
      */
     renderDebugClimate(ctx, offsetX, offsetY, highlightHex, showGrid) {
-        // Climate colors
+        // Climate colors for land
         const CLIMATE_COLORS = {
             'hot': '#e67e22',       // Orange
             'moderate': '#95a5a6',  // Gray
             'cold': '#3498db'       // Blue
+        };
+
+        // Climate colors for water (slightly different shades)
+        const CLIMATE_COLORS_WATER = {
+            'hot': '#d35400',       // Darker orange (warm water)
+            'moderate': '#5499c7',  // Blue-gray (normal water)
+            'cold': '#2874a6'       // Dark blue (cold water)
         };
 
         this.grid.hexes.forEach(hex => {
@@ -512,13 +519,18 @@ class MapRenderer {
             }
             ctx.closePath();
 
+            // Check if water
+            const isWater = this.grid.isHexWater(hex);
+
             // Get climate layer and color
             let climateColor = '#888888'; // Default gray
             if (hex.isLayered && hex.layers && hex.layers.climate) {
-                climateColor = CLIMATE_COLORS[hex.layers.climate] || climateColor;
+                const colorPalette = isWater ? CLIMATE_COLORS_WATER : CLIMATE_COLORS;
+                climateColor = colorPalette[hex.layers.climate] || climateColor;
             } else {
                 // Old system - all moderate
-                climateColor = CLIMATE_COLORS['moderate'];
+                const colorPalette = isWater ? CLIMATE_COLORS_WATER : CLIMATE_COLORS;
+                climateColor = colorPalette['moderate'];
             }
 
             ctx.fillStyle = climateColor;
@@ -558,6 +570,8 @@ class MapRenderer {
             'swamp': '#4a5d3e'      // Dark murky
         };
 
+        const WATER_COLOR = '#3498db'; // Blue for water
+
         this.grid.hexes.forEach(hex => {
             const pixel = this.grid.hexToPixel(hex);
             const centerX = pixel.x + offsetX;
@@ -572,30 +586,37 @@ class MapRenderer {
             }
             ctx.closePath();
 
-            // Get vegetation layer and color
-            let vegetationColor = '#888888'; // Default gray
-            if (hex.isLayered && hex.layers && hex.layers.vegetation) {
-                vegetationColor = VEGETATION_COLORS[hex.layers.vegetation] || vegetationColor;
+            // Check if water - if so, show blue
+            const isWater = this.grid.isHexWater(hex);
+            if (isWater) {
+                ctx.fillStyle = WATER_COLOR;
+                ctx.fill();
             } else {
-                // Old system - approximate from terrain type
-                const terrainType = hex.type;
-                if (terrainType === 'grass' || terrainType === 'plains') {
-                    vegetationColor = VEGETATION_COLORS['grassland'];
-                } else if (terrainType === 'forest') {
-                    vegetationColor = VEGETATION_COLORS['forest'];
-                } else if (terrainType === 'desert') {
-                    vegetationColor = VEGETATION_COLORS['desert'];
-                } else if (terrainType === 'tundra') {
-                    vegetationColor = VEGETATION_COLORS['tundra'];
-                } else if (terrainType === 'swamp') {
-                    vegetationColor = VEGETATION_COLORS['swamp'];
+                // Get vegetation layer and color for land tiles
+                let vegetationColor = '#888888'; // Default gray
+                if (hex.isLayered && hex.layers && hex.layers.vegetation) {
+                    vegetationColor = VEGETATION_COLORS[hex.layers.vegetation] || vegetationColor;
                 } else {
-                    vegetationColor = VEGETATION_COLORS['none'];
+                    // Old system - approximate from terrain type
+                    const terrainType = hex.type;
+                    if (terrainType === 'grass' || terrainType === 'plains') {
+                        vegetationColor = VEGETATION_COLORS['grassland'];
+                    } else if (terrainType === 'forest') {
+                        vegetationColor = VEGETATION_COLORS['forest'];
+                    } else if (terrainType === 'desert') {
+                        vegetationColor = VEGETATION_COLORS['desert'];
+                    } else if (terrainType === 'tundra') {
+                        vegetationColor = VEGETATION_COLORS['tundra'];
+                    } else if (terrainType === 'swamp') {
+                        vegetationColor = VEGETATION_COLORS['swamp'];
+                    } else {
+                        vegetationColor = VEGETATION_COLORS['none'];
+                    }
                 }
-            }
 
-            ctx.fillStyle = vegetationColor;
-            ctx.fill();
+                ctx.fillStyle = vegetationColor;
+                ctx.fill();
+            }
 
             // Highlight if this is the hovered hex
             if (highlightHex && hex.equals(highlightHex)) {
