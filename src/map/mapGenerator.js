@@ -22,63 +22,27 @@ class MapGenerator {
         // Extract options
         const seed = options.seed || Math.random();
         const algorithm = options.algorithm || 'random';
-        const useLayers = options.useLayers !== false; // Default to true
 
         // Choose generation algorithm
-        if (useLayers) {
-            // New layered system
-            switch (algorithm) {
-                case 'random':
-                    this.fillRandomLayeredTerrain(map, width, height, orientation);
-                    break;
-                default:
-                    this.fillRandomLayeredTerrain(map, width, height, orientation);
-            }
-        } else {
-            // Old flat system (backward compatibility)
-            switch (algorithm) {
-                case 'random':
-                    this.fillRandomTerrain(map, width, height, orientation);
-                    break;
-                case 'perlin':
-                    this.fillPerlinNoise(map, width, height, orientation, seed);
-                    break;
-                case 'continents':
-                    this.fillContinents(map, width, height, orientation, seed);
-                    break;
-                default:
-                    this.fillRandomTerrain(map, width, height, orientation);
-            }
+        switch (algorithm) {
+            case 'random':
+                this.fillRandom(map, width, height, orientation);
+                break;
+            case 'perlin':
+                this.fillPerlinNoise(map, width, height, orientation, seed);
+                break;
+            case 'continents':
+                this.fillContinents(map, width, height, orientation, seed);
+                break;
+            default:
+                this.fillRandom(map, width, height, orientation);
         }
 
         return map;
     }
 
     /**
-     * Fill map with weighted random terrain (OLD SYSTEM - for backward compatibility)
-     *
-     * @param {HexMap} map - Map to fill
-     * @param {number} width - Width in hexagons
-     * @param {number} height - Height in hexagons
-     * @param {string} orientation - Hexagon orientation
-     */
-    static fillRandomTerrain(map, width, height, orientation) {
-        for (let row = 0; row < height; row++) {
-            for (let col = 0; col < width; col++) {
-                // Convert offset coordinates to axial coordinates
-                const axial = HexMath.offsetToAxial(col, row, orientation);
-
-                // Randomly assign terrain type using weighted distribution
-                const randomType = Terrain.getWeightedRandomType();
-                const hex = new Hex(axial.q, axial.r, randomType);
-
-                map.setHex(hex);
-            }
-        }
-    }
-
-    /**
-     * Fill map with layered terrain (NEW SYSTEM)
+     * Fill map with random layered terrain
      * Generates height, climate, and vegetation layers independently
      *
      * @param {HexMap} map - Map to fill
@@ -86,7 +50,7 @@ class MapGenerator {
      * @param {number} height - Height in hexagons
      * @param {string} orientation - Hexagon orientation
      */
-    static fillRandomLayeredTerrain(map, width, height, orientation) {
+    static fillRandom(map, width, height, orientation) {
         for (let row = 0; row < height; row++) {
             for (let col = 0; col < width; col++) {
                 // Convert offset coordinates to axial coordinates
@@ -115,7 +79,7 @@ class MapGenerator {
         // TODO: Implement Perlin noise generation
         // For now, fall back to random
         console.log('Perlin noise generation not yet implemented, using random');
-        this.fillRandomTerrain(map, width, height, orientation);
+        this.fillRandom(map, width, height, orientation);
     }
 
     /**
@@ -132,7 +96,7 @@ class MapGenerator {
         // TODO: Implement continent generation
         // For now, fall back to random
         console.log('Continent generation not yet implemented, using random');
-        this.fillRandomTerrain(map, width, height, orientation);
+        this.fillRandom(map, width, height, orientation);
     }
 
     /**

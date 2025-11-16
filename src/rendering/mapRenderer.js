@@ -125,9 +125,6 @@ class MapRenderer {
      */
     renderTerrainTextures(ctx, offsetX, offsetY) {
         this.grid.hexes.forEach(hex => {
-            // Only render textures for layered terrain with elevation
-            if (!hex.isLayered || !hex.layers) return;
-
             const heightLayer = hex.layers.height;
 
             // Skip if not hills or mountains
@@ -455,14 +452,7 @@ class MapRenderer {
             ctx.closePath();
 
             // Get height layer and color
-            let heightColor = '#888888'; // Default gray
-            if (hex.isLayered && hex.layers && hex.layers.height) {
-                heightColor = HEIGHT_COLORS[hex.layers.height] || heightColor;
-            } else {
-                // Old system fallback - approximate from terrain type
-                const isWater = this.grid.isHexWater(hex);
-                heightColor = isWater ? HEIGHT_COLORS['deep_water'] : HEIGHT_COLORS['lowlands'];
-            }
+            const heightColor = HEIGHT_COLORS[hex.layers.height] || '#888888';
 
             ctx.fillStyle = heightColor;
             ctx.fill();
@@ -523,15 +513,8 @@ class MapRenderer {
             const isWater = this.grid.isHexWater(hex);
 
             // Get climate layer and color
-            let climateColor = '#888888'; // Default gray
-            if (hex.isLayered && hex.layers && hex.layers.climate) {
-                const colorPalette = isWater ? CLIMATE_COLORS_WATER : CLIMATE_COLORS;
-                climateColor = colorPalette[hex.layers.climate] || climateColor;
-            } else {
-                // Old system - all moderate
-                const colorPalette = isWater ? CLIMATE_COLORS_WATER : CLIMATE_COLORS;
-                climateColor = colorPalette['moderate'];
-            }
+            const colorPalette = isWater ? CLIMATE_COLORS_WATER : CLIMATE_COLORS;
+            const climateColor = colorPalette[hex.layers.climate] || '#888888';
 
             ctx.fillStyle = climateColor;
             ctx.fill();
@@ -593,26 +576,7 @@ class MapRenderer {
                 ctx.fill();
             } else {
                 // Get vegetation layer and color for land tiles
-                let vegetationColor = '#888888'; // Default gray
-                if (hex.isLayered && hex.layers && hex.layers.vegetation) {
-                    vegetationColor = VEGETATION_COLORS[hex.layers.vegetation] || vegetationColor;
-                } else {
-                    // Old system - approximate from terrain type
-                    const terrainType = hex.type;
-                    if (terrainType === 'grass' || terrainType === 'plains') {
-                        vegetationColor = VEGETATION_COLORS['grassland'];
-                    } else if (terrainType === 'forest') {
-                        vegetationColor = VEGETATION_COLORS['forest'];
-                    } else if (terrainType === 'desert') {
-                        vegetationColor = VEGETATION_COLORS['desert'];
-                    } else if (terrainType === 'tundra') {
-                        vegetationColor = VEGETATION_COLORS['tundra'];
-                    } else if (terrainType === 'swamp') {
-                        vegetationColor = VEGETATION_COLORS['swamp'];
-                    } else {
-                        vegetationColor = VEGETATION_COLORS['none'];
-                    }
-                }
+                const vegetationColor = VEGETATION_COLORS[hex.layers.vegetation] || '#888888';
 
                 ctx.fillStyle = vegetationColor;
                 ctx.fill();
@@ -632,20 +596,13 @@ class MapRenderer {
     }
 
     /**
-     * Get terrain color for a hex (supports both old and new terrain systems)
+     * Get terrain color for a hex
      *
      * @param {Hex} hex - Hex to get color for
      * @returns {string} Hex color code
      */
     getTerrainColor(hex) {
-        if (hex.isLayered) {
-            // New layered system
-            const composite = hex.terrainComposite;
-            return composite ? composite.color : Terrain.Colors.DEFAULT;
-        } else {
-            // Old flat system
-            return Terrain.getColor(hex.type);
-        }
+        return hex.terrainComposite.color;
     }
 
     /**

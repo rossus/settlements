@@ -9,57 +9,11 @@
  * Hex - Represents a single hexagon in the grid
  */
 class Hex {
-    constructor(q, r, typeOrLayers = 'grass') {
+    constructor(q, r, layers) {
         this.q = q; // column (axial coordinate)
         this.r = r; // row (axial coordinate)
-
-        // Support both old (string) and new (layers object) format
-        if (typeof typeOrLayers === 'string') {
-            // Old format: type string
-            this._type = typeOrLayers;
-            this._layers = null;
-        } else {
-            // New format: layers object
-            this._type = null;
-            this._layers = typeOrLayers;
-        }
-
+        this.layers = layers; // terrain layers object {height, climate, vegetation}
         this.data = {}; // additional data storage
-    }
-
-    /**
-     * Get terrain type (backward compatible)
-     * If using layers, returns composite type ID
-     */
-    get type() {
-        if (this._type) {
-            return this._type;
-        }
-        // Generate composite type from layers
-        return this.terrainComposite?.id || 'grass';
-    }
-
-    /**
-     * Set terrain type (backward compatible)
-     */
-    set type(value) {
-        this._type = value;
-        this._layers = null;
-    }
-
-    /**
-     * Get terrain layers
-     */
-    get layers() {
-        return this._layers;
-    }
-
-    /**
-     * Set terrain layers
-     */
-    set layers(value) {
-        this._layers = value;
-        this._type = null;
     }
 
     /**
@@ -67,18 +21,14 @@ class Hex {
      * Returns full terrain definition with all properties
      */
     get terrainComposite() {
-        if (!this._layers) {
-            // Fallback to old system
-            return null;
-        }
-        return TerrainLayers.getCompositeType(this._layers);
+        return TerrainLayers.getCompositeType(this.layers);
     }
 
     /**
-     * Check if using layered terrain system
+     * Get terrain type ID (for compatibility)
      */
-    get isLayered() {
-        return this._layers !== null;
+    get type() {
+        return this.terrainComposite.id;
     }
 
     /**
@@ -359,19 +309,13 @@ class HexMap {
     }
 
     /**
-     * Check if a hex is water (works with both old and new terrain systems)
+     * Check if a hex is water
      *
      * @param {Hex} hex - Hex to check
      * @returns {boolean} True if water terrain
      */
     isHexWater(hex) {
-        if (hex.isLayered) {
-            // New layered system
-            return hex.terrainComposite?.isWater || false;
-        } else {
-            // Old flat system
-            return Terrain.isWater(hex.type);
-        }
+        return hex.terrainComposite?.isWater || false;
     }
 
     /**
