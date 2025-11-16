@@ -131,13 +131,8 @@ const TerrainLayers = {
                     movementCost: 1,
                     buildable: true,
                     generationWeight: 5,
-                    description: 'Barren rocky ground',
-                    constraints: {
-                        height: {
-                            // Can appear on any land
-                            exclude: ['deep_water', 'shallow_water']
-                        }
-                    }
+                    description: 'Barren rocky ground'
+                    // No constraints - can appear anywhere (including water)
                 },
                 GRASSLAND: {
                     id: 'grassland',
@@ -355,7 +350,13 @@ const TerrainLayers = {
 
         // Vegetation last (may depend on height and climate via constraints)
         const validVegetation = this.getValidTypes('vegetation', layers);
-        layers.vegetation = this.getWeightedRandomType('vegetation', validVegetation);
+
+        // If no valid vegetation (e.g., water tiles), default to 'none'
+        if (validVegetation.length === 0) {
+            layers.vegetation = 'none';
+        } else {
+            layers.vegetation = this.getWeightedRandomType('vegetation', validVegetation);
+        }
 
         return layers;
     },
