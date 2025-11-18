@@ -8,7 +8,13 @@ Complete documentation for the Settlements hexagonal grid-based strategy game.
 
 **User and developer guides for working with the project:**
 
-- **[Extending Terrain System](guides/extending-terrain.md)** - How to add new layers and terrain types
+- **[Terrain Modding Guide](guides/terrain-modding.md)** - Create custom terrain packs (JSON only, no coding!)
+  - Quick start for modders
+  - JSON structure and examples
+  - Sci-fi, fantasy, post-apocalyptic examples
+  - Troubleshooting and sharing
+
+- **[Extending Terrain System](guides/extending-terrain.md)** - Developer guide for terrain system
   - Understanding the layered system
   - Adding new types to existing layers
   - Adding completely new layers
@@ -195,15 +201,19 @@ docs/
 
 ## 📊 Documentation Stats
 
-- **Total Docs:** 6 files
-- **Guides:** 4 files
+- **Total Docs:** 7 files
+- **Guides:** 5 files (including terrain modding guide)
 - **Architecture:** 1 file
-- **Last Updated:** 2025-11-16
+- **Last Updated:** 2025-11-17
 
 ---
 
 ## ✨ Recent Updates
 
+- **2025-11-17:** Converted terrain data to JSON for easy modding (no coding required!)
+- **2025-11-17:** Added async data loading system with DataLoader
+- **2025-11-17:** Created comprehensive terrain modding guide
+- **2025-11-17:** Separated terrain data from logic for mod-friendly architecture
 - **2025-11-16:** Added comprehensive guide for extending terrain system
 - **2025-11-16:** Removed outdated refactoring history documentation
 - **2025-11-16:** Updated all docs to reflect layered terrain system and constraint-based validation

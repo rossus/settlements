@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Viewport Culling Debug</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        .stat {
+            margin: 10px 0;
+            padding: 10px;
+            background: #2d2d2d;
+            border-left: 3px solid #007acc;
+        }
+        .error {
+            border-left-color: #f44336;
+            background: #3d2020;
+        }
+        .success {
+            border-left-color: #4caf50;
+            background: #203d20;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #007acc;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+    </style>
+</head>
+<body>
+    <h1>Viewport Culling Debug Tool</h1>
+    <p>Open this in the console while the game is running (START.bat)</p>
+
+    <button onclick="runDiagnostics()">Run Diagnostics</button>
+    <button onclick="profileRender()">Profile Render (60 frames)</button>
+    <button onclick="checkImplementation()">Check Implementation</button>
+
+    <div id="output"></div>
+
+    <script>
+        function log(message, type = 'stat') {
+            const output = document.getElementById('output');
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = message;
+            output.appendChild(div);
+        }
+
+        function clear() {
+            document.getElementById('output').innerHTML = '';
+        }
+
+        function checkImplementation() {
+            clear();
+            log('=== CHECKING IMPLEMENTATION ===');
+
+            // Check if game exists
+            if (typeof game === 'undefined') {
+                log('❌ ERROR: Game not found! Make sure the game is running.', 'error');
+                log('Run this in the browser console instead:', 'error');
+                log('Open http://localhost:8080, press F12, paste diagnostic code', 'error');
+                return;
+            }
+
+            log('✓ Game instance found', 'success');
+
+            // Check renderer
+            if (!game.renderer) {
+                log('❌ ERROR: Renderer not found!', 'error');
+                return;
+            }
+            log('✓ Renderer exists', 'success');
+
+            // Check for getVisibleHexes method
+            if (typeof game.renderer.getVisibleHexes !== 'function') {
+                log('❌ ERROR: getVisibleHexes() method not found!', 'error');
+                log('Viewport culling NOT implemented!', 'error');
+                return;
+            }
+            log('✓ getVisibleHexes() method exists', 'success');
+
+            // Check for currentVisibleHexes property
+            if (game.renderer.currentVisibleHexes === undefined) {
+                log('⚠ WARNING: currentVisibleHexes not set yet', 'error');
+                log('Try panning the map first', 'error');
+            } else {
+                log('✓ currentVisibleHexes is set', 'success');
+                log(`  Visible hexes: ${game.renderer.currentVisibleHexes.length}`, 'stat');
+                log(`  Total hexes: ${game.grid.hexes.length}`, 'stat');
+                const efficiency = (100 - (game.renderer.currentVisibleHexes.length / game.grid.hexes.length * 100)).toFixed(1);
+                log(`  Efficiency: ${efficiency}% hexes NOT rendered`, efficiency > 50 ? 'success' : 'error');
+            }
+        }
+
+        function runDiagnostics() {
+            clear();
+            log('=== RUNNING DIAGNOSTICS ===');
+
+            if (typeof game === 'undefined') {
+                log('❌ Run this in the game window console (F12)', 'error');
+                return;
+            }
+
+            // Total hexes
+            const totalHexes = game.grid.hexes.length;
+            log(`Total hexes in map: ${totalHexes}`, 'stat');
+
+            // Get visible hexes count
+            const canvasWidth = game.canvas.width;
+            const canvasHeight = game.canvas.height;
+
+            if (typeof game.renderer.getVisibleHexes === 'function') {
+                const visibleHexes = game.renderer.getVisibleHexes(
+                    game.camera.x,
+                    game.camera.y,
+                    canvasWidth,
+                    canvasHeight
+                );
+
+                log(`Visible hexes: ${visibleHexes.length}`, 'stat');
+                log(`Hidden hexes: ${totalHexes - visibleHexes.length}`, 'stat');
+
+                const culled = ((1 - visibleHexes.length / totalHexes) * 100).toFixed(1);
+                log(`Culling efficiency: ${culled}%`, culled > 50 ? 'success' : 'error');
+
+                if (culled < 50) {
+                    log('⚠ WARNING: Less than 50% culled. Zoomed out too far?', 'error');
+                }
+            } else {
+                log('❌ CRITICAL: getVisibleHexes() not found!', 'error');
+                log('Viewport culling NOT implemented!', 'error');
+            }
+
+            // Check render loop
+            log('\nChecking render performance...', 'stat');
+            const start = performance.now();
+            game.render();
+            const end = performance.now();
+            const renderTime = (end - start).toFixed(2);
+
+            log(`Single render time: ${renderTime}ms`, renderTime < 10 ? 'success' : 'error');
+
+            if (renderTime > 16) {
+                log('❌ Render time > 16ms (below 60 FPS)', 'error');
+            } else if (renderTime > 10) {
+                log('⚠ Render time > 10ms (could be better)', 'error');
+            } else {
+                log('✓ Render time is good!', 'success');
+            }
+        }
+
+        function profileRender() {
+            clear();
+            log('=== PROFILING 60 FRAMES ===');
+
+            if (typeof game === 'undefined') {
+                log('❌ Run this in the game window console (F12)', 'error');
+                return;
+            }
+
+            const times = [];
+            let frame = 0;
+
+            function measureFrame() {
+                const start = performance.now();
+                game.render();
+                const end = performance.now();
+                times.push(end - start);
+
+                frame++;
+                if (frame < 60) {
+                    requestAnimationFrame(measureFrame);
+                } else {
+                    // Calculate stats
+                    const avg = times.reduce((a, b) => a + b) / times.length;
+                    const min = Math.min(...times);
+                    const max = Math.max(...times);
+                    const fps = 1000 / avg;
+
+                    log(`Frames measured: 60`, 'stat');
+                    log(`Average frame time: ${avg.toFixed(2)}ms`, avg < 10 ? 'success' : 'error');
+                    log(`Min frame time: ${min.toFixed(2)}ms`, 'stat');
+                    log(`Max frame time: ${max.toFixed(2)}ms`, 'stat');
+                    log(`Average FPS: ${fps.toFixed(1)}`, fps > 60 ? 'success' : 'error');
+
+                    // Find slow frames
+                    const slowFrames = times.filter(t => t > 16).length;
+                    if (slowFrames > 0) {
+                        log(`⚠ ${slowFrames}/60 frames were slow (>16ms)`, 'error');
+                    }
+
+                    // Recommendations
+                    log('\n=== RECOMMENDATIONS ===', 'stat');
+                    if (fps < 30) {
+                        log('❌ CRITICAL: FPS below 30', 'error');
+                        log('Problems likely:', 'error');
+                        log('1. Viewport culling not working', 'error');
+                        log('2. Too many canvas operations', 'error');
+                        log('3. Large map fully visible', 'error');
+                    } else if (fps < 60) {
+                        log('⚠ FPS below 60 - room for improvement', 'error');
+                    } else {
+                        log('✓ Performance is excellent!', 'success');
+                    }
+                }
+            }
+
+            log('Measuring...', 'stat');
+            requestAnimationFrame(measureFrame);
+        }
+    </script>
+
+    <h2>Alternative: Paste in Console</h2>
+    <p>If you're seeing this file, open the game in browser, press F12, and paste:</p>
+    <pre style="background: #2d2d2d; padding: 15px; overflow-x: auto;">
+// Quick diagnostic
+console.log('Total hexes:', game.grid.hexes.length);
+if (game.renderer.getVisibleHexes) {
+    const visible = game.renderer.getVisibleHexes(
+        game.camera.x, game.camera.y,
+        game.canvas.width, game.canvas.height
+    );
+    console.log('Visible hexes:', visible.length);
+    console.log('Culling:', ((1 - visible.length / game.grid.hexes.length) * 100).toFixed(1) + '%');
+} else {
+    console.log('ERROR: Viewport culling NOT implemented!');
+}
+
+// Profile render
+let times = [];
+for (let i = 0; i < 60; i++) {
+    const start = performance.now();
+    game.render();
+    times.push(performance.now() - start);
+}
+const avg = times.reduce((a,b) => a + b) / 60;
+console.log('Avg frame time:', avg.toFixed(2) + 'ms');
+console.log('FPS:', (1000 / avg).toFixed(1));
+    </pre>
+</body>
+</html>
