@@ -27,6 +27,7 @@ const TerrainLayers = {
             throw new Error('Invalid terrain data: missing layers');
         }
         this.layers = terrainData.layers;
+        this.shoreSprite = terrainData.shoreSprite || null; // Optional shore sprite path
         console.log('TerrainLayers initialized with', Object.keys(this.layers).length, 'layers');
     },
 

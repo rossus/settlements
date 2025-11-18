@@ -188,11 +188,13 @@ class MapRenderer {
             const centerX = pixel.x + offsetX;
             const centerY = pixel.y + offsetY;
 
-            // Fill with terrain color (supports both old and new systems)
-            ctx.fillStyle = this.getTerrainColor(hex);
+            // Check for sprite or texture
+            const sprite = this.getTerrainSprite(hex);
+            const texture = this.getTerrainTexture(hex);
 
             if (useSimplified) {
                 // Draw simple rectangle when zoomed way out (much faster)
+                ctx.fillStyle = this.getTerrainColor(hex);
                 ctx.fillRect(centerX - hexSize * 0.5, centerY - hexSize * 0.5, hexSize, hexSize);
             } else {
                 // Draw detailed hexagon
@@ -203,7 +205,32 @@ class MapRenderer {
                     ctx.lineTo(corners[i].x, corners[i].y);
                 }
                 ctx.closePath();
-                ctx.fill();
+
+                if (sprite) {
+                    // Use sprite - clip to hex shape and draw image
+                    ctx.save();
+                    ctx.clip();
+                    // Calculate sprite bounds to fit hex
+                    const radius = hexSize * 1.15; // Slightly larger to cover hex
+                    ctx.drawImage(sprite, centerX - radius, centerY - radius, radius * 2, radius * 2);
+                    ctx.restore();
+                } else {
+                    // Use color fill
+                    ctx.fillStyle = this.getTerrainColor(hex);
+                    ctx.fill();
+
+                    // Apply texture overlay if available
+                    if (texture) {
+                        ctx.save();
+                        ctx.clip();
+                        const pattern = ctx.createPattern(texture, 'repeat');
+                        if (pattern) {
+                            ctx.fillStyle = pattern;
+                            ctx.fill();
+                        }
+                        ctx.restore();
+                    }
+                }
             }
 
             // Highlight if this is the hovered hex
@@ -212,6 +239,13 @@ class MapRenderer {
                 if (useSimplified) {
                     ctx.fillRect(centerX - hexSize * 0.5, centerY - hexSize * 0.5, hexSize, hexSize);
                 } else {
+                    // Reuse hex path for highlighting
+                    ctx.beginPath();
+                    ctx.moveTo(corners[0].x, corners[0].y);
+                    for (let i = 1; i < corners.length; i++) {
+                        ctx.lineTo(corners[i].x, corners[i].y);
+                    }
+                    ctx.closePath();
                     ctx.fill();
                 }
             }
@@ -424,7 +458,17 @@ class MapRenderer {
             }
         });
 
-        // Render using generic border renderer
+        // Check if shore sprite is available
+        const shoreSprite = AssetLoader.getImage(TerrainLayers.shoreSprite);
+
+        if (shoreSprite) {
+            // TODO: Implement sprite-based shore rendering
+            // For now, fall back to color borders
+            // Future: Draw sprite segments along border edges
+            console.log('Shore sprite loaded but sprite-based rendering not yet implemented. Using color borders.');
+        }
+
+        // Render using generic border renderer (with or without sprite)
         this.renderBorders(ctx, offsetX, offsetY, borders, {
             strokeStyle: Terrain.Colors.SAND_BORDER,
             lineWidth: 6,
@@ -779,6 +823,52 @@ class MapRenderer {
      */
     getTerrainColor(hex) {
         return hex.terrainComposite.color;
+    }
+
+    /**
+     * Get sprite for a hex's terrain (if available)
+     * @param {Hex} hex - The hex
+     * @returns {HTMLImageElement|null} Sprite image or null
+     */
+    getTerrainSprite(hex) {
+        // Check vegetation layer first (most specific)
+        const vegType = TerrainLayers.getLayerType('vegetation', hex.layers.vegetation);
+        if (vegType && vegType.sprite) {
+            const sprite = AssetLoader.getImage(vegType.sprite);
+            if (sprite) return sprite;
+        }
+
+        // Check height layer
+        const heightType = TerrainLayers.getLayerType('height', hex.layers.height);
+        if (heightType && heightType.sprite) {
+            const sprite = AssetLoader.getImage(heightType.sprite);
+            if (sprite) return sprite;
+        }
+
+        return null; // No sprite available, use color
+    }
+
+    /**
+     * Get texture overlay for a hex's terrain (if available)
+     * @param {Hex} hex - The hex
+     * @returns {HTMLImageElement|null} Texture image or null
+     */
+    getTerrainTexture(hex) {
+        // Check vegetation layer first
+        const vegType = TerrainLayers.getLayerType('vegetation', hex.layers.vegetation);
+        if (vegType && vegType.texture) {
+            const texture = AssetLoader.getImage(vegType.texture);
+            if (texture) return texture;
+        }
+
+        // Check height layer
+        const heightType = TerrainLayers.getLayerType('height', hex.layers.height);
+        if (heightType && heightType.texture) {
+            const texture = AssetLoader.getImage(heightType.texture);
+            if (texture) return texture;
+        }
+
+        return null; // No texture available
     }
 
     /**

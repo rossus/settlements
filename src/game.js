@@ -58,6 +58,10 @@ class Game {
             // Initialize terrain system with loaded data
             TerrainLayers.init(terrainData);
 
+            // Load sprites/textures (non-blocking, fallback to colors if failed)
+            this.updateStatus('Loading sprites...');
+            await AssetLoader.loadTerrainSprites(terrainData);
+
             this.updateStatus('Initializing game...');
 
             // Set canvas size to window size
