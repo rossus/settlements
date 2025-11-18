@@ -2,227 +2,32 @@
  * TerrainLayers - Constraint-based layered terrain system for Settlements
  *
  * This module implements a data-driven multi-layer terrain system where:
- * - Each layer type declares its own constraints about compatible combinations
+ * - Layer and type definitions are loaded from external JSON files
  * - Generic validation engine handles all constraint checking
- * - Adding new layers or types requires minimal code changes
+ * - Abstract logic is separated from terrain data declarations
  *
  * Architecture:
- * - Layers are defined in the `layers` object with their types
- * - Each type can have `constraints` that specify required/excluded other layers
- * - Validation is automatic based on constraints
+ * - Terrain data (layers, types, constraints) loaded from JSON via DataLoader
+ * - Abstract validation, generation, and composition logic defined here
+ * - Easy to extend by modifying JSON files without touching code
  */
 
 const TerrainLayers = {
     /**
-     * Layer definitions with constraint-based validation
+     * Layer definitions (initialized from external data)
      */
-    layers: {
-        /**
-         * Height/Elevation layer
-         * Determines base terrain type and walkability
-         */
-        height: {
-            name: 'Height',
-            types: {
-                DEEP_WATER: {
-                    id: 'deep_water',
-                    name: 'Deep Water',
-                    elevation: -2,
-                    baseColor: '#4a90e2',
-                    walkable: false,
-                    buildable: false,
-                    isWater: true,
-                    generationWeight: 15,
-                    description: 'Deep water, impassable without boats'
-                },
-                SHALLOW_WATER: {
-                    id: 'shallow_water',
-                    name: 'Shallow Water',
-                    elevation: -1,
-                    baseColor: '#7cb9e8',
-                    walkable: true,
-                    buildable: false,
-                    isWater: true,
-                    generationWeight: 8,
-                    description: 'Shallow water that can be waded through'
-                },
-                LOWLANDS: {
-                    id: 'lowlands',
-                    name: 'Lowlands',
-                    elevation: 0,
-                    baseColor: null, // Uses vegetation color
-                    walkable: true,
-                    buildable: true,
-                    isWater: false,
-                    generationWeight: 50,
-                    description: 'Low-lying flat terrain'
-                },
-                HILLS: {
-                    id: 'hills',
-                    name: 'Hills',
-                    elevation: 1,
-                    baseColor: null, // Uses vegetation color with tint
-                    walkable: true,
-                    buildable: true,
-                    isWater: false,
-                    generationWeight: 20,
-                    description: 'Rolling hills'
-                },
-                MOUNTAINS: {
-                    id: 'mountains',
-                    name: 'Mountains',
-                    elevation: 2,
-                    baseColor: '#8b7355',
-                    walkable: true,
-                    buildable: false,
-                    isWater: false,
-                    generationWeight: 7,
-                    description: 'Tall mountains'
-                }
-            }
-        },
+    layers: {},
 
-        /**
-         * Climate/Temperature layer
-         * Affects color tinting
-         */
-        climate: {
-            name: 'Climate',
-            types: {
-                HOT: {
-                    id: 'hot',
-                    name: 'Hot',
-                    temperature: 2,
-                    colorTint: '#ffaa77', // Warm orange tint
-                    generationWeight: 25,
-                    description: 'Hot climate zone'
-                },
-                MODERATE: {
-                    id: 'moderate',
-                    name: 'Moderate',
-                    temperature: 1,
-                    colorTint: null, // No tint
-                    generationWeight: 50,
-                    description: 'Temperate climate zone'
-                },
-                COLD: {
-                    id: 'cold',
-                    name: 'Cold',
-                    temperature: 0,
-                    colorTint: '#aaccff', // Cool blue tint
-                    generationWeight: 25,
-                    description: 'Cold climate zone'
-                }
-            }
-        },
-
-        /**
-         * Vegetation/Surface layer
-         * Determines movement cost and surface appearance
-         * Uses constraints to define valid combinations
-         */
-        vegetation: {
-            name: 'Vegetation',
-            types: {
-                NONE: {
-                    id: 'none',
-                    name: 'Barren',
-                    baseColor: '#b8a896',
-                    movementCost: 1,
-                    buildable: true,
-                    generationWeight: 5,
-                    description: 'Barren rocky ground'
-                    // No constraints - can appear anywhere (including water)
-                },
-                GRASSLAND: {
-                    id: 'grassland',
-                    name: 'Grassland',
-                    baseColor: '#7ec850',
-                    movementCost: 1,
-                    buildable: true,
-                    generationWeight: 40,
-                    description: 'Open grassland',
-                    constraints: {
-                        height: {
-                            // Grasslands can appear almost anywhere except water
-                            exclude: ['deep_water', 'shallow_water']
-                        }
-                    }
-                },
-                FOREST: {
-                    id: 'forest',
-                    name: 'Forest',
-                    baseColor: '#228b22',
-                    movementCost: 2,
-                    buildable: false,
-                    generationWeight: 25,
-                    description: 'Dense forest',
-                    constraints: {
-                        height: {
-                            // Forests don't grow in water or on mountains
-                            exclude: ['deep_water', 'shallow_water', 'mountains']
-                        }
-                    }
-                },
-                DESERT: {
-                    id: 'desert',
-                    name: 'Desert',
-                    baseColor: '#f4e4a6',
-                    movementCost: 1.5,
-                    buildable: true,
-                    generationWeight: 10,
-                    description: 'Arid desert',
-                    constraints: {
-                        height: {
-                            // Deserts on flat land
-                            exclude: ['deep_water', 'shallow_water', 'mountains']
-                        },
-                        climate: {
-                            // Deserts need hot or moderate climate
-                            require: ['hot', 'moderate']
-                        }
-                    }
-                },
-                TUNDRA: {
-                    id: 'tundra',
-                    name: 'Tundra',
-                    baseColor: '#b8d4e0',
-                    movementCost: 1.8,
-                    buildable: true,
-                    generationWeight: 8,
-                    description: 'Frozen tundra',
-                    constraints: {
-                        height: {
-                            // Tundra on land only
-                            exclude: ['deep_water', 'shallow_water']
-                        },
-                        climate: {
-                            // Tundra needs cold climate
-                            require: ['cold']
-                        }
-                    }
-                },
-                SWAMP: {
-                    id: 'swamp',
-                    name: 'Swamp',
-                    baseColor: '#4a5d3e',
-                    movementCost: 2.5,
-                    buildable: false,
-                    generationWeight: 12,
-                    description: 'Marshy swampland',
-                    constraints: {
-                        height: {
-                            // Swamps only in lowlands
-                            require: ['lowlands']
-                        },
-                        climate: {
-                            // No hot swamps
-                            exclude: ['hot']
-                        }
-                    }
-                }
-            }
+    /**
+     * Initialize terrain system with data from JSON
+     * @param {Object} terrainData - Terrain data loaded from JSON
+     */
+    init(terrainData) {
+        if (!terrainData || !terrainData.layers) {
+            throw new Error('Invalid terrain data: missing layers');
         }
+        this.layers = terrainData.layers;
+        console.log('TerrainLayers initialized with', Object.keys(this.layers).length, 'layers');
     },
 
     /**

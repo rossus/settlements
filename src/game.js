@@ -38,40 +38,61 @@ class Game {
         // Display settings
         this.showGrid = true;
         this.debugView = null; // null, 'landmass', or 'heightmap'
+        this.useLOD = true; // Level of Detail optimization (on by default)
 
-        this.init();
+        // Will be initialized asynchronously
+        this.initialized = false;
     }
 
     /**
-     * Initialize the game
+     * Initialize the game asynchronously
+     * Loads terrain data from JSON before creating the map
      */
-    init() {
-        // Set canvas size to window size
-        this.updateCanvasSize();
+    async init() {
+        try {
+            this.updateStatus('Loading terrain data...');
 
-        // Create rectangular hex grid
-        this.grid = new HexGrid(this.gridWidth, this.gridHeight, this.hexSize);
+            // Load terrain configuration
+            const terrainData = await DataLoader.loadTerrainData();
 
-        // Create renderer
-        this.renderer = new MapRenderer(this.grid);
+            // Initialize terrain system with loaded data
+            TerrainLayers.init(terrainData);
 
-        // Create input controller
-        this.inputController = new InputController(this.canvas, this.camera, this.grid, {
-            onHexHover: (data) => this.handleHexHover(data),
-            onHexClick: (data) => this.handleHexClick(data),
-            onCameraMove: () => this.render(),
-            onCameraZoom: () => this.render(),
-            onResize: () => this.handleResize()
-        });
+            this.updateStatus('Initializing game...');
 
-        // Setup UI event listeners (buttons, dropdowns)
-        this.setupUIListeners();
+            // Set canvas size to window size
+            this.updateCanvasSize();
 
-        // Initial render
-        this.render();
+            // Create rectangular hex grid
+            this.grid = new HexGrid(this.gridWidth, this.gridHeight, this.hexSize);
 
-        const sizeName = this.worldSizes[this.currentWorldSize].name;
-        this.updateStatus(`Game initialized - ${sizeName} world (${this.gridWidth}x${this.gridHeight}). Drag to pan, scroll to zoom.`);
+            // Create renderer
+            this.renderer = new MapRenderer(this.grid);
+
+            // Create input controller
+            this.inputController = new InputController(this.canvas, this.camera, this.grid, {
+                onHexHover: (data) => this.handleHexHover(data),
+                onHexClick: (data) => this.handleHexClick(data),
+                onCameraMove: () => this.render(),
+                onCameraZoom: () => this.render(),
+                onResize: () => this.handleResize()
+            });
+
+            // Setup UI event listeners (buttons, dropdowns)
+            this.setupUIListeners();
+
+            // Initial render
+            this.render();
+
+            const sizeName = this.worldSizes[this.currentWorldSize].name;
+            this.updateStatus(`Game initialized - ${sizeName} world (${this.gridWidth}x${this.gridHeight}). Drag to pan, scroll to zoom.`);
+
+            this.initialized = true;
+        } catch (error) {
+            console.error('Failed to initialize game:', error);
+            this.updateStatus(`Error: ${error.message}. Check console for details.`);
+            throw error;
+        }
     }
 
     /**
@@ -96,6 +117,9 @@ class Game {
 
         // Toggle grid button
         document.getElementById('toggleGridBtn').addEventListener('click', () => this.toggleGrid());
+
+        // Toggle LOD button
+        document.getElementById('toggleLODBtn').addEventListener('click', () => this.toggleLOD());
 
         // Debug view selector
         document.getElementById('debugViewSelect').addEventListener('change', (e) => this.changeDebugView(e.target.value));
@@ -190,6 +214,17 @@ class Game {
     }
 
     /**
+     * Toggle Level of Detail (LOD) optimization
+     */
+    toggleLOD() {
+        this.useLOD = !this.useLOD;
+        const btn = document.getElementById('toggleLODBtn');
+        btn.textContent = this.useLOD ? 'LOD: On' : 'LOD: Off';
+        this.render();
+        this.updateStatus(`Level of Detail ${this.useLOD ? 'enabled (optimized)' : 'disabled (full detail)'}`);
+    }
+
+    /**
      * Change debug view mode
      */
     changeDebugView(view) {
@@ -225,7 +260,10 @@ class Game {
         // Get hovered hex from input controller
         const hoveredHex = this.inputController ? this.inputController.getHoveredHex() : null;
 
-        // Render grid at origin (camera transform handles positioning)
+        // Pass camera to renderer for viewport culling
+        // offsetX/offsetY stay 0,0 since canvas is already transformed
+        this.renderer.setCamera(this.camera, this.canvasWidth, this.canvasHeight);
+        this.renderer.setLOD(this.useLOD);
         this.renderer.render(this.ctx, 0, 0, hoveredHex, this.showGrid, this.debugView);
 
         // Restore context state
@@ -249,8 +287,16 @@ class Game {
 
 // Initialize game when DOM is loaded
 let game;
-document.addEventListener('DOMContentLoaded', () => {
-    game = new Game();
-    window.game = game; // Make accessible for debugging
-    console.log('Settlements game initialized');
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        game = new Game();
+        window.game = game; // Make accessible for debugging
+
+        // Initialize asynchronously (loads JSON data)
+        await game.init();
+
+        console.log('Settlements game initialized');
+    } catch (error) {
+        console.error('Failed to start game:', error);
+    }
 });

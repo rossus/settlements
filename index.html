@@ -22,6 +22,7 @@
                     <option value="huge">Huge</option>
                 </select>
                 <button id="toggleGridBtn">Hide Grid</button>
+                <button id="toggleLODBtn">LOD: On</button>
                 <select id="debugViewSelect" class="debug-view-select">
                     <option value="">Debug: Off</option>
                     <option value="landmass">Debug: Landmass</option>
@@ -41,8 +42,13 @@
     <!-- Core utilities -->
     <script src="src/core/hexMath.js"></script>
     <script src="src/core/terrain.js"></script>
-    <script src="src/core/terrainLayers.js"></script>
     <script src="src/core/camera.js"></script>
+
+    <!-- Data loader (async JSON loading) -->
+    <script src="src/data/dataLoader.js"></script>
+
+    <!-- Terrain system (initialized with loaded data) -->
+    <script src="src/core/terrainLayers.js"></script>
 
     <!-- Map system -->
     <script src="src/map/hexMap.js"></script>
