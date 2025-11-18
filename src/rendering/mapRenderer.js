@@ -8,6 +8,106 @@
 class MapRenderer {
     constructor(hexGrid) {
         this.grid = hexGrid;
+
+        // Viewport culling cache
+        this.visibleHexesCache = null;
+        this.lastCameraX = null;
+        this.lastCameraY = null;
+        this.lastCameraZoom = null;
+        this.lastCanvasWidth = null;
+        this.lastCanvasHeight = null;
+
+        // Level of Detail setting (default: true)
+        this.useLOD = true;
+    }
+
+    /**
+     * Set camera for viewport culling
+     * @param {Camera} camera - Camera object
+     * @param {number} canvasWidth - Canvas width
+     * @param {number} canvasHeight - Canvas height
+     */
+    setCamera(camera, canvasWidth, canvasHeight) {
+        this.camera = camera;
+        this.canvasWidth = canvasWidth;
+        this.canvasHeight = canvasHeight;
+    }
+
+    /**
+     * Set Level of Detail (LOD) optimization
+     * @param {boolean} enabled - Whether to use LOD optimizations
+     */
+    setLOD(enabled) {
+        this.useLOD = enabled;
+    }
+
+    /**
+     * Get only hexes visible in current viewport (with caching)
+     * HUGE performance boost for large maps!
+     *
+     * @returns {Array} Only visible hexes
+     */
+    getVisibleHexes() {
+        if (!this.camera) {
+            // Fallback if camera not set - return all hexes as array
+            return Array.from(this.grid.hexes.values());
+        }
+
+        const hexSize = this.grid.hexSize;
+        const zoom = this.camera.zoom;
+
+        // Only recalculate if camera moved more than 2 hexes worth
+        const moveThreshold = hexSize * zoom * 2;
+        const cameraMovedSignificantly =
+            this.lastCameraX === null ||
+            Math.abs(this.camera.x - this.lastCameraX) > moveThreshold ||
+            Math.abs(this.camera.y - this.lastCameraY) > moveThreshold ||
+            Math.abs(this.lastCameraZoom - this.camera.zoom) > 0.01 ||
+            this.lastCanvasWidth !== this.canvasWidth ||
+            this.lastCanvasHeight !== this.canvasHeight;
+
+        // Use cache if camera hasn't moved much
+        if (!cameraMovedSignificantly && this.visibleHexesCache) {
+            // Using cached result - no recalculation needed!
+            return this.visibleHexesCache;
+        }
+
+        // Get viewport bounds from camera (correctly handles center-based transform)
+        const bounds = this.camera.getViewBounds();
+
+        // Add margin in world space (2 hexes worth)
+        const margin = hexSize * 2;
+        const minX = bounds.left - margin;
+        const maxX = bounds.right + margin;
+        const minY = bounds.top - margin;
+        const maxY = bounds.bottom + margin;
+
+        // Filter hexes efficiently (avoid Array.from overhead)
+        this.visibleHexesCache = [];
+        for (const hex of this.grid.hexes.values()) {
+            const pixel = this.grid.hexToPixel(hex);
+
+            // Check if hex is within viewport (in world space)
+            if (pixel.x >= minX && pixel.x <= maxX &&
+                pixel.y >= minY && pixel.y <= maxY) {
+                this.visibleHexesCache.push(hex);
+            }
+        }
+
+        // Update cache state
+        this.lastCameraX = this.camera.x;
+        this.lastCameraY = this.camera.y;
+        this.lastCameraZoom = this.camera.zoom;
+        this.lastCanvasWidth = this.canvasWidth;
+        this.lastCanvasHeight = this.canvasHeight;
+
+        // Debug logging (comment out after testing)
+        const totalHexes = this.grid.hexes.size; // Map.size, not array.length
+        const visibleCount = this.visibleHexesCache.length;
+        const culledPercent = ((1 - visibleCount / totalHexes) * 100).toFixed(1);
+        console.log(`Viewport Culling [RECALC]: ${visibleCount}/${totalHexes} hexes (${culledPercent}% culled)`);
+
+        return this.visibleHexesCache;
     }
 
     /**
@@ -21,6 +121,11 @@ class MapRenderer {
      * @param {string} debugView - Debug view mode: null, 'landmass', or 'heightmap'
      */
     render(ctx, offsetX = 0, offsetY = 0, highlightHex = null, showGrid = true, debugView = null) {
+        // Get only visible hexes (HUGE performance boost!)
+        const visibleHexes = this.getVisibleHexes();
+
+        // Store for use in rendering methods
+        this.currentVisibleHexes = visibleHexes;
         // Debug views render differently
         if (debugView === 'landmass') {
             this.renderDebugLandmass(ctx, offsetX, offsetY, highlightHex, showGrid);
@@ -36,18 +141,27 @@ class MapRenderer {
             return;
         }
 
-        // Normal rendering
-        // First pass: draw all hexagon fills
+        // Normal rendering with optional Level of Detail (LOD)
+        const zoom = this.camera ? this.camera.zoom : 1;
+
+        // First pass: draw all hexagon fills (always)
         this.renderHexagonFills(ctx, offsetX, offsetY, highlightHex);
 
         // Second pass: draw terrain textures (hills, mountains)
-        this.renderTerrainTextures(ctx, offsetX, offsetY);
+        // Skip when LOD enabled and zoomed out
+        if (!this.useLOD || zoom >= 0.5) {
+            this.renderTerrainTextures(ctx, offsetX, offsetY);
+        }
 
         // Third pass: draw sand borders between water and land
-        this.renderSandBorders(ctx, offsetX, offsetY);
+        // Skip when LOD enabled and zoomed out
+        if (!this.useLOD || zoom >= 0.5) {
+            this.renderSandBorders(ctx, offsetX, offsetY);
+        }
 
-        // Fourth pass: draw grid lines on top of sand borders
-        if (showGrid) {
+        // Fourth pass: draw grid lines on top
+        // Skip when LOD enabled and zoomed way out
+        if (showGrid && (!this.useLOD || zoom >= 0.4)) {
             this.renderGridLines(ctx, offsetX, offsetY);
         }
     }
@@ -61,28 +175,45 @@ class MapRenderer {
      * @param {Hex} highlightHex - Hex to highlight (optional)
      */
     renderHexagonFills(ctx, offsetX, offsetY, highlightHex) {
-        this.grid.hexes.forEach(hex => {
+        // Use only visible hexes for performance!
+        const hexes = this.currentVisibleHexes || Array.from(this.grid.hexes.values());
+        const zoom = this.camera ? this.camera.zoom : 1;
+
+        // LOD: Use simplified rendering when LOD enabled and zoomed way out
+        const useSimplified = this.useLOD && zoom < 0.4;
+        const hexSize = this.grid.hexSize;
+
+        hexes.forEach(hex => {
             const pixel = this.grid.hexToPixel(hex);
             const centerX = pixel.x + offsetX;
             const centerY = pixel.y + offsetY;
-            const corners = this.grid.getHexCorners(centerX, centerY);
-
-            // Draw hexagon shape
-            ctx.beginPath();
-            ctx.moveTo(corners[0].x, corners[0].y);
-            for (let i = 1; i < corners.length; i++) {
-                ctx.lineTo(corners[i].x, corners[i].y);
-            }
-            ctx.closePath();
 
             // Fill with terrain color (supports both old and new systems)
             ctx.fillStyle = this.getTerrainColor(hex);
-            ctx.fill();
+
+            if (useSimplified) {
+                // Draw simple rectangle when zoomed way out (much faster)
+                ctx.fillRect(centerX - hexSize * 0.5, centerY - hexSize * 0.5, hexSize, hexSize);
+            } else {
+                // Draw detailed hexagon
+                const corners = this.grid.getHexCorners(centerX, centerY);
+                ctx.beginPath();
+                ctx.moveTo(corners[0].x, corners[0].y);
+                for (let i = 1; i < corners.length; i++) {
+                    ctx.lineTo(corners[i].x, corners[i].y);
+                }
+                ctx.closePath();
+                ctx.fill();
+            }
 
             // Highlight if this is the hovered hex
             if (highlightHex && hex.equals(highlightHex)) {
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-                ctx.fill();
+                if (useSimplified) {
+                    ctx.fillRect(centerX - hexSize * 0.5, centerY - hexSize * 0.5, hexSize, hexSize);
+                } else {
+                    ctx.fill();
+                }
             }
         });
     }
@@ -95,7 +226,8 @@ class MapRenderer {
      * @param {number} offsetY - Y offset
      */
     renderGridLines(ctx, offsetX, offsetY) {
-        this.grid.hexes.forEach(hex => {
+        const hexes = this.currentVisibleHexes || Array.from(this.grid.hexes.values());
+        hexes.forEach(hex => {
             const pixel = this.grid.hexToPixel(hex);
             const centerX = pixel.x + offsetX;
             const centerY = pixel.y + offsetY;
@@ -124,7 +256,8 @@ class MapRenderer {
      * @param {number} offsetY - Y offset
      */
     renderTerrainTextures(ctx, offsetX, offsetY) {
-        this.grid.hexes.forEach(hex => {
+        const hexes = this.currentVisibleHexes || Array.from(this.grid.hexes.values());
+        hexes.forEach(hex => {
             const heightLayer = hex.layers.height;
 
             // Skip if not hills or mountains
@@ -249,8 +382,47 @@ class MapRenderer {
      * @param {number} offsetY - Y offset
      */
     renderSandBorders(ctx, offsetX, offsetY) {
-        // Get all water-land borders
-        const borders = this.grid.getWaterLandBorders();
+        // Only calculate borders for VISIBLE hexes!
+        const visibleHexes = this.currentVisibleHexes || Array.from(this.grid.hexes.values());
+
+        const borders = [];
+        const processedBorders = new Set();
+        const directions = HexMath.getNeighborDirections();
+
+        // Check borders only for visible hexes
+        visibleHexes.forEach(hex => {
+            const hex1IsWater = this.grid.isHexWater(hex);
+
+            // Check all neighbors
+            for (let neighborIdx = 0; neighborIdx < 6; neighborIdx++) {
+                const dir = directions[neighborIdx];
+                const neighborQ = hex.q + dir.q;
+                const neighborR = hex.r + dir.r;
+                const neighbor = this.grid.getHex(neighborQ, neighborR);
+
+                if (!neighbor) continue; // Edge of map
+
+                const hex2IsWater = this.grid.isHexWater(neighbor);
+
+                // Only create border if one is water and one is land
+                if (hex1IsWater !== hex2IsWater) {
+                    // Create unique key to avoid duplicates
+                    const key = hex1IsWater
+                        ? `${hex.q},${hex.r}-${neighbor.q},${neighbor.r}`
+                        : `${neighbor.q},${neighbor.r}-${hex.q},${hex.r}`;
+
+                    if (!processedBorders.has(key)) {
+                        processedBorders.add(key);
+                        borders.push({
+                            hex1: hex,
+                            hex2: neighbor,
+                            neighborIdx: neighborIdx,
+                            neighborDirection: dir
+                        });
+                    }
+                }
+            }
+        });
 
         // Render using generic border renderer
         this.renderBorders(ctx, offsetX, offsetY, borders, {
@@ -385,7 +557,8 @@ class MapRenderer {
         const WATER_COLOR = '#3498db';  // Blue
         const LAND_COLOR = '#d4c4a0';   // Pale yellow-brown
 
-        this.grid.hexes.forEach(hex => {
+        const hexes = this.currentVisibleHexes || Array.from(this.grid.hexes.values());
+        hexes.forEach(hex => {
             const pixel = this.grid.hexToPixel(hex);
             const centerX = pixel.x + offsetX;
             const centerY = pixel.y + offsetY;
@@ -437,7 +610,8 @@ class MapRenderer {
             'mountains': '#e74c3c'        // Red (+2)
         };
 
-        this.grid.hexes.forEach(hex => {
+        const hexes = this.currentVisibleHexes || Array.from(this.grid.hexes.values());
+        hexes.forEach(hex => {
             const pixel = this.grid.hexToPixel(hex);
             const centerX = pixel.x + offsetX;
             const centerY = pixel.y + offsetY;
@@ -495,7 +669,8 @@ class MapRenderer {
             'cold': '#2874a6'       // Dark blue (cold water)
         };
 
-        this.grid.hexes.forEach(hex => {
+        const hexes = this.currentVisibleHexes || Array.from(this.grid.hexes.values());
+        hexes.forEach(hex => {
             const pixel = this.grid.hexToPixel(hex);
             const centerX = pixel.x + offsetX;
             const centerY = pixel.y + offsetY;
@@ -555,7 +730,8 @@ class MapRenderer {
 
         const WATER_COLOR = '#3498db'; // Blue for water
 
-        this.grid.hexes.forEach(hex => {
+        const hexes = this.currentVisibleHexes || Array.from(this.grid.hexes.values());
+        hexes.forEach(hex => {
             const pixel = this.grid.hexToPixel(hex);
             const centerX = pixel.x + offsetX;
             const centerY = pixel.y + offsetY;

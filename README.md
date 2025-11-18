@@ -15,12 +15,21 @@ A hexagonal grid-based strategy game built with vanilla JavaScript and HTML5 Can
 
 ## Quick Start
 
-1. **Open `index.html` in a web browser**
-2. **Interact with the map:**
-   - Drag to pan the camera
-   - Scroll to zoom in/out
-   - Hover to see hex information
-   - Click to select a hex
+### One-Click Launcher
+
+**Windows:** Double-click `START.bat`
+**Linux/Mac:** Run `./START.sh`
+
+The launcher will start a web server and open the game automatically!
+
+*(Requires [Node.js](https://nodejs.org/) - see [RUNNING.md](RUNNING.md) for details)*
+
+### Interact with the Map
+
+- Drag to pan the camera
+- Scroll to zoom in/out
+- Hover to see hex information
+- Click to select a hex
 
 ## Project Structure
 

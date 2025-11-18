@@ -1,0 +1,186 @@
+{
+  "layers": {
+    "height": {
+      "name": "Height",
+      "types": {
+        "DEEP_WATER": {
+          "id": "deep_water",
+          "name": "Deep Water",
+          "elevation": -2,
+          "baseColor": "#4a90e2",
+          "walkable": false,
+          "buildable": false,
+          "isWater": true,
+          "generationWeight": 15,
+          "description": "Deep water, impassable without boats"
+        },
+        "SHALLOW_WATER": {
+          "id": "shallow_water",
+          "name": "Shallow Water",
+          "elevation": -1,
+          "baseColor": "#7cb9e8",
+          "walkable": true,
+          "buildable": false,
+          "isWater": true,
+          "generationWeight": 8,
+          "description": "Shallow water that can be waded through"
+        },
+        "LOWLANDS": {
+          "id": "lowlands",
+          "name": "Lowlands",
+          "elevation": 0,
+          "baseColor": null,
+          "walkable": true,
+          "buildable": true,
+          "isWater": false,
+          "generationWeight": 50,
+          "description": "Low-lying flat terrain"
+        },
+        "HILLS": {
+          "id": "hills",
+          "name": "Hills",
+          "elevation": 1,
+          "baseColor": null,
+          "walkable": true,
+          "buildable": true,
+          "isWater": false,
+          "generationWeight": 20,
+          "description": "Rolling hills"
+        },
+        "MOUNTAINS": {
+          "id": "mountains",
+          "name": "Mountains",
+          "elevation": 2,
+          "baseColor": "#8b7355",
+          "walkable": true,
+          "buildable": false,
+          "isWater": false,
+          "generationWeight": 7,
+          "description": "Tall mountains"
+        }
+      }
+    },
+    "climate": {
+      "name": "Climate",
+      "types": {
+        "HOT": {
+          "id": "hot",
+          "name": "Hot",
+          "temperature": 2,
+          "colorTint": "#ffaa77",
+          "generationWeight": 25,
+          "description": "Hot climate zone"
+        },
+        "MODERATE": {
+          "id": "moderate",
+          "name": "Moderate",
+          "temperature": 1,
+          "colorTint": null,
+          "generationWeight": 50,
+          "description": "Temperate climate zone"
+        },
+        "COLD": {
+          "id": "cold",
+          "name": "Cold",
+          "temperature": 0,
+          "colorTint": "#aaccff",
+          "generationWeight": 25,
+          "description": "Cold climate zone"
+        }
+      }
+    },
+    "vegetation": {
+      "name": "Vegetation",
+      "types": {
+        "NONE": {
+          "id": "none",
+          "name": "Barren",
+          "baseColor": "#b8a896",
+          "movementCost": 1,
+          "buildable": true,
+          "generationWeight": 5,
+          "description": "Barren rocky ground"
+        },
+        "GRASSLAND": {
+          "id": "grassland",
+          "name": "Grassland",
+          "baseColor": "#7ec850",
+          "movementCost": 1,
+          "buildable": true,
+          "generationWeight": 40,
+          "description": "Open grassland",
+          "constraints": {
+            "height": {
+              "exclude": ["deep_water", "shallow_water"]
+            }
+          }
+        },
+        "FOREST": {
+          "id": "forest",
+          "name": "Forest",
+          "baseColor": "#228b22",
+          "movementCost": 2,
+          "buildable": false,
+          "generationWeight": 25,
+          "description": "Dense forest",
+          "constraints": {
+            "height": {
+              "exclude": ["deep_water", "shallow_water", "mountains"]
+            }
+          }
+        },
+        "DESERT": {
+          "id": "desert",
+          "name": "Desert",
+          "baseColor": "#f4e4a6",
+          "movementCost": 1.5,
+          "buildable": true,
+          "generationWeight": 10,
+          "description": "Arid desert",
+          "constraints": {
+            "height": {
+              "exclude": ["deep_water", "shallow_water", "mountains"]
+            },
+            "climate": {
+              "require": ["hot", "moderate"]
+            }
+          }
+        },
+        "TUNDRA": {
+          "id": "tundra",
+          "name": "Tundra",
+          "baseColor": "#b8d4e0",
+          "movementCost": 1.8,
+          "buildable": true,
+          "generationWeight": 8,
+          "description": "Frozen tundra",
+          "constraints": {
+            "height": {
+              "exclude": ["deep_water", "shallow_water"]
+            },
+            "climate": {
+              "require": ["cold"]
+            }
+          }
+        },
+        "SWAMP": {
+          "id": "swamp",
+          "name": "Swamp",
+          "baseColor": "#4a5d3e",
+          "movementCost": 2.5,
+          "buildable": false,
+          "generationWeight": 12,
+          "description": "Marshy swampland",
+          "constraints": {
+            "height": {
+              "require": ["lowlands"]
+            },
+            "climate": {
+              "exclude": ["hot"]
+            }
+          }
+        }
+      }
+    }
+  }
+}

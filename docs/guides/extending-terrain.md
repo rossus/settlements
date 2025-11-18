@@ -5,6 +5,7 @@ A practical guide for adding new terrain layers and types to Settlements.
 ## Table of Contents
 
 - [Understanding the Layered System](#understanding-the-layered-system)
+- [Data-Driven Architecture](#data-driven-architecture)
 - [How to Add a New Type to an Existing Layer](#how-to-add-a-new-type-to-an-existing-layer)
 - [How to Add a New Layer](#how-to-add-a-new-layer)
 - [Constraint System Reference](#constraint-system-reference)
@@ -24,50 +25,82 @@ Settlements uses a **layered terrain system** where each hex has multiple indepe
 }
 ```
 
-Each layer is defined in `src/core/terrainLayers.js` with:
-- **Types**: Different values the layer can have (e.g., 'hot', 'moderate', 'cold')
-- **Constraints**: Rules defining which type combinations are valid
-- **Properties**: Display name, color, movement cost, etc.
-
 The **constraint-based validation system** automatically ensures realistic terrain combinations during generation.
+
+---
+
+## Data-Driven Architecture
+
+**NEW:** Terrain data is now separated from logic!
+
+### File Structure
+
+- **`data/terrainData.json`** - All terrain layer and type definitions (DATA)
+- **`src/core/terrainLayers.js`** - Validation and generation logic (CODE)
+
+### Benefits
+
+✅ **Easy Modding** - Change terrain types without touching code
+✅ **Multiple Configurations** - Load different terrain sets (fantasy, sci-fi, etc.)
+✅ **Balance Testing** - Adjust properties and weights easily
+✅ **Clean Separation** - Data vs logic clearly separated
+
+### What Goes Where
+
+**terrainData.js (declarations):**
+- Layer definitions
+- Type properties (colors, weights, elevation)
+- Constraint rules (require/exclude)
+
+**terrainLayers.js (abstract logic):**
+- Constraint validation engine
+- Random generation algorithms
+- Color blending calculations
+- Composite type generation
 
 ---
 
 ## How to Add a New Type to an Existing Layer
 
-### Example: Adding "Tundra" Vegetation Type
+### Example: Adding "Jungle" Vegetation Type
 
-**Step 1: Open `src/core/terrainLayers.js`**
+**Step 1: Open `data/terrainData.json`**
 
 **Step 2: Add the new type to the appropriate layer**
 
-Find the `vegetation` layer and add your new type:
+Find the `vegetation` layer in the `terrainData` object and add your new type:
 
 ```javascript
-vegetation: {
-    name: 'Vegetation',
-    types: {
-        // ... existing types ...
+const terrainData = {
+  "layers": {
+    "height": { /* ... */ },
+    "climate": { /* ... */ },
+    "vegetation": {
+      "name": "Vegetation",
+      "types": {
+        // ... existing types (NONE, GRASSLAND, FOREST, etc.) ...
 
-        TUNDRA: {
-            id: 'tundra',
-            name: 'Tundra',
-            baseColor: '#d5d5c0',           // Light gray-green
-            movementCost: 1.2,
-            buildable: true,
-            generationWeight: 8,             // How often it appears
-            description: 'Sparse Arctic vegetation',
-            constraints: {
-                height: {
-                    exclude: ['deep_water', 'shallow_water', 'mountains']
-                },
-                climate: {
-                    require: ['cold']        // Only in cold climates
-                }
+        "JUNGLE": {
+          "id": "jungle",
+          "name": "Jungle",
+          "baseColor": "#2d5016",
+          "movementCost": 2.5,
+          "buildable": false,
+          "generationWeight": 15,
+          "description": "Dense tropical jungle",
+          "constraints": {
+            "height": {
+              "exclude": ["deep_water", "shallow_water", "mountains"]
+            },
+            "climate": {
+              "require": ["hot"]    // Only in hot climates
             }
+          }
         }
+      }
     }
-}
+  }
+};
 ```
 
 **Step 3: Add debug view color (optional)**
@@ -77,11 +110,11 @@ In `src/rendering/mapRenderer.js`, find `renderDebugVegetation()` and add:
 ```javascript
 const VEGETATION_COLORS = {
     // ... existing colors ...
-    'tundra': '#d5d5c0'
+    'jungle': '#2d5016'
 };
 ```
 
-**That's it!** The constraint system automatically integrates your new type.
+**That's it!** The constraint system automatically integrates your new type. No code changes needed!
 
 ---
 
@@ -89,55 +122,54 @@ const VEGETATION_COLORS = {
 
 ### Example: Adding a "Moisture" Layer
 
-Adding a new layer requires updates to several files, but the system is designed to make this straightforward.
+Adding a new layer requires updates to both data and code files. Most changes are in the data file!
 
-### Step 1: Define the Layer in `src/core/terrainLayers.js`
+### Step 1: Define the Layer in `data/terrainData.json`
 
-Add your new layer to the `layers` object:
+Add your new layer to the `terrainData.layers` object:
 
 ```javascript
-const TerrainLayers = {
-    layers: {
-        height: { /* ... */ },
-        climate: { /* ... */ },
-        vegetation: { /* ... */ },
+const terrainData = {
+  "layers": {
+    "height": { /* ... */ },
+    "climate": { /* ... */ },
+    "vegetation": { /* ... */ },
 
-        // NEW LAYER
-        moisture: {
-            name: 'Moisture',
-            types: {
-                ARID: {
-                    id: 'arid',
-                    name: 'Arid',
-                    baseColor: '#f4e4a6',
-                    generationWeight: 20,
-                    description: 'Dry climate'
-                    // No constraints for first layer type
-                },
-                NORMAL: {
-                    id: 'normal',
-                    name: 'Normal',
-                    baseColor: '#a8d5a8',
-                    generationWeight: 60,
-                    description: 'Average moisture'
-                },
-                WET: {
-                    id: 'wet',
-                    name: 'Wet',
-                    baseColor: '#7bb8d4',
-                    generationWeight: 20,
-                    description: 'High moisture',
-                    constraints: {
-                        height: {
-                            exclude: ['deep_water', 'shallow_water']
-                        }
-                    }
-                }
+    // NEW LAYER
+    "moisture": {
+      "name": "Moisture",
+      "types": {
+        "ARID": {
+          "id": "arid",
+          "name": "Arid",
+          "baseColor": "#f4e4a6",
+          "generationWeight": 20,
+          "description": "Dry climate"
+          // No constraints for first layer type
+        },
+        "NORMAL": {
+          "id": "normal",
+          "name": "Normal",
+          "baseColor": "#a8d5a8",
+          "generationWeight": 60,
+          "description": "Average moisture"
+        },
+        "WET": {
+          "id": "wet",
+          "name": "Wet",
+          "baseColor": "#7bb8d4",
+          "generationWeight": 20,
+          "description": "High moisture",
+          "constraints": {
+            "height": {
+              "exclude": ["deep_water", "shallow_water"]
             }
+          }
         }
-    },
-    // ... rest of TerrainLayers
-}
+      }
+    }
+  }
+};
 ```
 
 ### Step 2: Update Generation Order in `generateRandomLayers()`
@@ -167,24 +199,24 @@ generateRandomLayers() {
 
 ### Step 3: Update Constraints in Other Layers
 
-Add constraints to existing types that should interact with the new layer:
+In `data/terrainData.json`, add constraints to existing types that should interact with the new layer:
 
 ```javascript
-SWAMP: {
-    id: 'swamp',
-    name: 'Swamp',
-    // ... other properties ...
-    constraints: {
-        height: {
-            require: ['lowlands']
-        },
-        climate: {
-            exclude: ['hot']
-        },
-        moisture: {                    // NEW CONSTRAINT
-            require: ['wet', 'normal']  // Swamps need moisture
-        }
+"SWAMP": {
+  "id": "swamp",
+  "name": "Swamp",
+  // ... other properties ...
+  "constraints": {
+    "height": {
+      "require": ["lowlands"]
+    },
+    "climate": {
+      "exclude": ["hot"]
+    },
+    "moisture": {                    // NEW CONSTRAINT
+      "require": ["wet", "normal"]   // Swamps need moisture
     }
+  }
 }
 ```
 
@@ -498,17 +530,17 @@ RAINFOREST: {
 ## Summary
 
 **To add a type:**
-1. Add type definition to layer in `terrainLayers.js`
-2. Add debug color (optional)
+1. Add type definition to layer in **`data/terrainData.json`** (DATA FILE)
+2. Add debug color in `src/rendering/mapRenderer.js` (optional)
 3. Test in browser
 
 **To add a layer:**
-1. Define layer in `terrainLayers.js`
-2. Update `generateRandomLayers()`
-3. Update `getCompositeType()`
-4. Add constraints to existing types
-5. Add debug view (optional)
-6. Update UI (optional)
+1. Define layer in **`data/terrainData.json`** (DATA FILE)
+2. Update `generateRandomLayers()` in **`src/core/terrainLayers.js`** (CODE FILE)
+3. Update `getCompositeType()` in **`src/core/terrainLayers.js`** (CODE FILE)
+4. Add constraints to existing types in **`data/terrainData.json`** (DATA FILE)
+5. Add debug view in `src/rendering/mapRenderer.js` (optional)
+6. Update UI in `index.html` and `src/game.js` (optional)
 7. Test thoroughly
 
-The constraint-based system handles validation automatically - you just define the rules!
+**Key Principle:** Data lives in `terrainData.json`, logic lives in `terrainLayers.js`. The constraint-based system handles validation automatically - you just define the rules!
