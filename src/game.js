@@ -127,16 +127,10 @@ class Game {
     }
 
     /**
-     * Get display name for terrain (works with both old and new systems)
+     * Get display name for terrain
      */
     getTerrainDisplayName(hex) {
-        if (hex.isLayered) {
-            const composite = hex.terrainComposite;
-            return composite ? composite.name : 'Unknown';
-        } else {
-            const terrainDef = Terrain.getType(hex.type);
-            return terrainDef ? terrainDef.name : hex.type;
-        }
+        return hex.terrainComposite.name;
     }
 
     /**

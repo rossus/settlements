@@ -1,202 +1,426 @@
 /**
- * TerrainLayers - Layered terrain system for Settlements
+ * TerrainLayers - Constraint-based layered terrain system for Settlements
  *
- * This module implements a multi-layer terrain system where terrain is composed of:
- * - Height layer (elevation): deep water, shallow water, lowlands, hills, mountains
- * - Climate layer (temperature): hot, moderate, cold
- * - Vegetation layer (surface): none, grassland, forest, desert, tundra, swamp
+ * This module implements a data-driven multi-layer terrain system where:
+ * - Each layer type declares its own constraints about compatible combinations
+ * - Generic validation engine handles all constraint checking
+ * - Adding new layers or types requires minimal code changes
  *
- * This allows for terrain transformation (chop forest, terraform, climate change)
- * and generates much richer terrain variety from simple layer combinations.
+ * Architecture:
+ * - Layers are defined in the `layers` object with their types
+ * - Each type can have `constraints` that specify required/excluded other layers
+ * - Validation is automatic based on constraints
  */
 
 const TerrainLayers = {
     /**
-     * Height/Elevation layer definitions
-     * Determines base terrain type and walkability
+     * Layer definitions with constraint-based validation
      */
-    Height: {
-        DEEP_WATER: {
-            id: 'deep_water',
-            name: 'Deep Water',
-            elevation: -2,
-            baseColor: '#4a90e2',
-            walkable: false,
-            buildable: false,
-            isWater: true,
-            generationWeight: 15,
-            description: 'Deep water, impassable without boats'
+    layers: {
+        /**
+         * Height/Elevation layer
+         * Determines base terrain type and walkability
+         */
+        height: {
+            name: 'Height',
+            types: {
+                DEEP_WATER: {
+                    id: 'deep_water',
+                    name: 'Deep Water',
+                    elevation: -2,
+                    baseColor: '#4a90e2',
+                    walkable: false,
+                    buildable: false,
+                    isWater: true,
+                    generationWeight: 15,
+                    description: 'Deep water, impassable without boats'
+                },
+                SHALLOW_WATER: {
+                    id: 'shallow_water',
+                    name: 'Shallow Water',
+                    elevation: -1,
+                    baseColor: '#7cb9e8',
+                    walkable: true,
+                    buildable: false,
+                    isWater: true,
+                    generationWeight: 8,
+                    description: 'Shallow water that can be waded through'
+                },
+                LOWLANDS: {
+                    id: 'lowlands',
+                    name: 'Lowlands',
+                    elevation: 0,
+                    baseColor: null, // Uses vegetation color
+                    walkable: true,
+                    buildable: true,
+                    isWater: false,
+                    generationWeight: 50,
+                    description: 'Low-lying flat terrain'
+                },
+                HILLS: {
+                    id: 'hills',
+                    name: 'Hills',
+                    elevation: 1,
+                    baseColor: null, // Uses vegetation color with tint
+                    walkable: true,
+                    buildable: true,
+                    isWater: false,
+                    generationWeight: 20,
+                    description: 'Rolling hills'
+                },
+                MOUNTAINS: {
+                    id: 'mountains',
+                    name: 'Mountains',
+                    elevation: 2,
+                    baseColor: '#8b7355',
+                    walkable: true,
+                    buildable: false,
+                    isWater: false,
+                    generationWeight: 7,
+                    description: 'Tall mountains'
+                }
+            }
         },
-        SHALLOW_WATER: {
-            id: 'shallow_water',
-            name: 'Shallow Water',
-            elevation: -1,
-            baseColor: '#7cb9e8',
-            walkable: true,
-            buildable: false,
-            isWater: true,
-            generationWeight: 8,
-            description: 'Shallow water that can be waded through'
+
+        /**
+         * Climate/Temperature layer
+         * Affects color tinting
+         */
+        climate: {
+            name: 'Climate',
+            types: {
+                HOT: {
+                    id: 'hot',
+                    name: 'Hot',
+                    temperature: 2,
+                    colorTint: '#ffaa77', // Warm orange tint
+                    generationWeight: 25,
+                    description: 'Hot climate zone'
+                },
+                MODERATE: {
+                    id: 'moderate',
+                    name: 'Moderate',
+                    temperature: 1,
+                    colorTint: null, // No tint
+                    generationWeight: 50,
+                    description: 'Temperate climate zone'
+                },
+                COLD: {
+                    id: 'cold',
+                    name: 'Cold',
+                    temperature: 0,
+                    colorTint: '#aaccff', // Cool blue tint
+                    generationWeight: 25,
+                    description: 'Cold climate zone'
+                }
+            }
         },
-        LOWLANDS: {
-            id: 'lowlands',
-            name: 'Lowlands',
-            elevation: 0,
-            baseColor: null, // Uses vegetation color
-            walkable: true,
-            buildable: true,
-            isWater: false,
-            generationWeight: 50,
-            description: 'Low-lying flat terrain'
-        },
-        HILLS: {
-            id: 'hills',
-            name: 'Hills',
-            elevation: 1,
-            baseColor: null, // Uses vegetation color with tint
-            walkable: true,
-            buildable: true,
-            isWater: false,
-            generationWeight: 20,
-            description: 'Rolling hills'
-        },
-        MOUNTAINS: {
-            id: 'mountains',
-            name: 'Mountains',
-            elevation: 2,
-            baseColor: '#8b7355',
-            walkable: true,
-            buildable: false,
-            isWater: false,
-            generationWeight: 7,
-            description: 'Tall mountains'
+
+        /**
+         * Vegetation/Surface layer
+         * Determines movement cost and surface appearance
+         * Uses constraints to define valid combinations
+         */
+        vegetation: {
+            name: 'Vegetation',
+            types: {
+                NONE: {
+                    id: 'none',
+                    name: 'Barren',
+                    baseColor: '#b8a896',
+                    movementCost: 1,
+                    buildable: true,
+                    generationWeight: 5,
+                    description: 'Barren rocky ground'
+                    // No constraints - can appear anywhere (including water)
+                },
+                GRASSLAND: {
+                    id: 'grassland',
+                    name: 'Grassland',
+                    baseColor: '#7ec850',
+                    movementCost: 1,
+                    buildable: true,
+                    generationWeight: 40,
+                    description: 'Open grassland',
+                    constraints: {
+                        height: {
+                            // Grasslands can appear almost anywhere except water
+                            exclude: ['deep_water', 'shallow_water']
+                        }
+                    }
+                },
+                FOREST: {
+                    id: 'forest',
+                    name: 'Forest',
+                    baseColor: '#228b22',
+                    movementCost: 2,
+                    buildable: false,
+                    generationWeight: 25,
+                    description: 'Dense forest',
+                    constraints: {
+                        height: {
+                            // Forests don't grow in water or on mountains
+                            exclude: ['deep_water', 'shallow_water', 'mountains']
+                        }
+                    }
+                },
+                DESERT: {
+                    id: 'desert',
+                    name: 'Desert',
+                    baseColor: '#f4e4a6',
+                    movementCost: 1.5,
+                    buildable: true,
+                    generationWeight: 10,
+                    description: 'Arid desert',
+                    constraints: {
+                        height: {
+                            // Deserts on flat land
+                            exclude: ['deep_water', 'shallow_water', 'mountains']
+                        },
+                        climate: {
+                            // Deserts need hot or moderate climate
+                            require: ['hot', 'moderate']
+                        }
+                    }
+                },
+                TUNDRA: {
+                    id: 'tundra',
+                    name: 'Tundra',
+                    baseColor: '#b8d4e0',
+                    movementCost: 1.8,
+                    buildable: true,
+                    generationWeight: 8,
+                    description: 'Frozen tundra',
+                    constraints: {
+                        height: {
+                            // Tundra on land only
+                            exclude: ['deep_water', 'shallow_water']
+                        },
+                        climate: {
+                            // Tundra needs cold climate
+                            require: ['cold']
+                        }
+                    }
+                },
+                SWAMP: {
+                    id: 'swamp',
+                    name: 'Swamp',
+                    baseColor: '#4a5d3e',
+                    movementCost: 2.5,
+                    buildable: false,
+                    generationWeight: 12,
+                    description: 'Marshy swampland',
+                    constraints: {
+                        height: {
+                            // Swamps only in lowlands
+                            require: ['lowlands']
+                        },
+                        climate: {
+                            // No hot swamps
+                            exclude: ['hot']
+                        }
+                    }
+                }
+            }
         }
     },
 
     /**
-     * Climate/Temperature layer definitions
-     * Affects color tinting and vegetation types
-     */
-    Climate: {
-        HOT: {
-            id: 'hot',
-            name: 'Hot',
-            temperature: 2,
-            colorTint: '#ffaa77', // Warm orange tint
-            generationWeight: 25,
-            description: 'Hot climate zone'
-        },
-        MODERATE: {
-            id: 'moderate',
-            name: 'Moderate',
-            temperature: 1,
-            colorTint: null, // No tint
-            generationWeight: 50,
-            description: 'Temperate climate zone'
-        },
-        COLD: {
-            id: 'cold',
-            name: 'Cold',
-            temperature: 0,
-            colorTint: '#aaccff', // Cool blue tint
-            generationWeight: 25,
-            description: 'Cold climate zone'
-        }
-    },
-
-    /**
-     * Vegetation/Surface layer definitions
-     * Determines movement cost and surface appearance
-     */
-    Vegetation: {
-        NONE: {
-            id: 'none',
-            name: 'Barren',
-            baseColor: '#b8a896',
-            movementCost: 1,
-            buildable: true,
-            generationWeight: 5,
-            description: 'Barren rocky ground'
-        },
-        GRASSLAND: {
-            id: 'grassland',
-            name: 'Grassland',
-            baseColor: '#7ec850',
-            movementCost: 1,
-            buildable: true,
-            generationWeight: 40,
-            description: 'Open grassland'
-        },
-        FOREST: {
-            id: 'forest',
-            name: 'Forest',
-            baseColor: '#228b22',
-            movementCost: 2,
-            buildable: false,
-            generationWeight: 25,
-            description: 'Dense forest'
-        },
-        DESERT: {
-            id: 'desert',
-            name: 'Desert',
-            baseColor: '#f4e4a6',
-            movementCost: 1.5,
-            buildable: true,
-            generationWeight: 10,
-            description: 'Arid desert'
-        },
-        TUNDRA: {
-            id: 'tundra',
-            name: 'Tundra',
-            baseColor: '#b8d4e0',
-            movementCost: 1.8,
-            buildable: true,
-            generationWeight: 8,
-            description: 'Frozen tundra'
-        },
-        SWAMP: {
-            id: 'swamp',
-            name: 'Swamp',
-            baseColor: '#4a5d3e',
-            movementCost: 2.5,
-            buildable: false,
-            generationWeight: 12,
-            description: 'Marshy swampland'
-        }
-    },
-
-    /**
-     * Get all layer types for a specific layer
+     * Generic constraint validator
+     * Checks if a layer type is valid given the current layer selections
      *
-     * @param {string} layerName - 'Height', 'Climate', or 'Vegetation'
-     * @returns {Array<Object>} Array of layer type definitions
+     * @param {string} layerName - Layer to validate (e.g., 'vegetation')
+     * @param {string} typeId - Type ID to validate (e.g., 'forest')
+     * @param {Object} currentLayers - Currently selected layers {height: 'lowlands', climate: 'hot', ...}
+     * @returns {boolean} True if valid
      */
-    getLayerTypes(layerName) {
-        return Object.values(this[layerName]);
+    isTypeValid(layerName, typeId, currentLayers) {
+        const type = this.getLayerType(layerName, typeId);
+        if (!type || !type.constraints) return true; // No constraints = always valid
+
+        // Check each constraint
+        for (const [constraintLayer, rules] of Object.entries(type.constraints)) {
+            const currentValue = currentLayers[constraintLayer];
+            if (!currentValue) continue; // No current value to check against
+
+            // Check 'require' constraint - must be one of these values
+            if (rules.require && !rules.require.includes(currentValue)) {
+                return false;
+            }
+
+            // Check 'exclude' constraint - must NOT be one of these values
+            if (rules.exclude && rules.exclude.includes(currentValue)) {
+                return false;
+            }
+        }
+
+        return true;
+    },
+
+    /**
+     * Get all valid types for a layer given current selections
+     * This replaces all hardcoded validation logic!
+     *
+     * @param {string} layerName - Layer to get valid types for
+     * @param {Object} currentLayers - Currently selected layers
+     * @returns {Array<string>} Array of valid type IDs
+     */
+    getValidTypes(layerName, currentLayers) {
+        const layer = this.layers[layerName];
+        if (!layer) return [];
+
+        const validTypes = [];
+        for (const type of Object.values(layer.types)) {
+            if (this.isTypeValid(layerName, type.id, currentLayers)) {
+                validTypes.push(type.id);
+            }
+        }
+
+        return validTypes;
+    },
+
+    /**
+     * Get weighted random type from a list of valid type IDs
+     *
+     * @param {string} layerName - Layer name
+     * @param {Array<string>} validTypeIds - Array of valid type IDs
+     * @returns {string} Random type ID
+     */
+    getWeightedRandomType(layerName, validTypeIds) {
+        const layer = this.layers[layerName];
+        const validTypes = validTypeIds
+            .map(id => Object.values(layer.types).find(t => t.id === id))
+            .filter(t => t !== undefined);
+
+        if (validTypes.length === 0) {
+            console.warn(`No valid types for layer ${layerName}`);
+            return validTypeIds[0];
+        }
+
+        const totalWeight = validTypes.reduce((sum, t) => sum + (t.generationWeight || 0), 0);
+        let random = Math.random() * totalWeight;
+
+        for (const type of validTypes) {
+            random -= (type.generationWeight || 0);
+            if (random <= 0) {
+                return type.id;
+            }
+        }
+
+        return validTypes[0]?.id || validTypeIds[0];
+    },
+
+    /**
+     * Get weighted random layer type (all types)
+     *
+     * @param {string} layerName - Layer name
+     * @returns {string} Random type ID
+     */
+    getWeightedRandomLayer(layerName) {
+        const layer = this.layers[layerName];
+        const types = Object.values(layer.types);
+        const totalWeight = types.reduce((sum, t) => sum + (t.generationWeight || 0), 0);
+
+        let random = Math.random() * totalWeight;
+        for (const type of types) {
+            random -= (type.generationWeight || 0);
+            if (random <= 0) {
+                return type.id;
+            }
+        }
+
+        return types[0]?.id;
+    },
+
+    /**
+     * Generate random layers with automatic constraint validation
+     * This method is now completely generic!
+     *
+     * @returns {Object} Random valid layer combination
+     */
+    generateRandomLayers() {
+        const layers = {};
+
+        // Generate layers in order (some may depend on others)
+        // Height first (no dependencies)
+        layers.height = this.getWeightedRandomLayer('height');
+
+        // Climate (no dependencies on height)
+        layers.climate = this.getWeightedRandomLayer('climate');
+
+        // Vegetation last (may depend on height and climate via constraints)
+        const validVegetation = this.getValidTypes('vegetation', layers);
+
+        // If no valid vegetation (e.g., water tiles), default to 'none'
+        if (validVegetation.length === 0) {
+            layers.vegetation = 'none';
+        } else {
+            layers.vegetation = this.getWeightedRandomType('vegetation', validVegetation);
+        }
+
+        return layers;
+    },
+
+    /**
+     * Check if a layer combination is valid
+     *
+     * @param {Object} layers - Layer combination to check
+     * @returns {boolean} True if valid
+     */
+    isValidCombination(layers) {
+        // Check each layer against the others
+        for (const [layerName, typeId] of Object.entries(layers)) {
+            if (!this.isTypeValid(layerName, typeId, layers)) {
+                return false;
+            }
+        }
+        return true;
     },
 
     /**
      * Get layer definition by ID
      *
-     * @param {string} layerName - 'Height', 'Climate', or 'Vegetation'
-     * @param {string} typeId - Layer type ID
-     * @returns {Object|null} Layer definition or null
+     * @param {string} layerName - Layer name
+     * @param {string} typeId - Type ID
+     * @returns {Object|null} Type definition or null
      */
     getLayerType(layerName, typeId) {
-        return Object.values(this[layerName]).find(t => t.id === typeId) || null;
+        const layer = this.layers[layerName];
+        if (!layer) return null;
+
+        return Object.values(layer.types).find(t => t.id === typeId) || null;
+    },
+
+    /**
+     * Get all layer names
+     *
+     * @returns {Array<string>} Array of layer names
+     */
+    getLayerNames() {
+        return Object.keys(this.layers);
+    },
+
+    /**
+     * Get all types for a layer
+     *
+     * @param {string} layerName - Layer name
+     * @returns {Array<Object>} Array of type definitions
+     */
+    getLayerTypes(layerName) {
+        const layer = this.layers[layerName];
+        return layer ? Object.values(layer.types) : [];
     },
 
     /**
      * Combine layers into composite terrain properties
-     * This is the core method that generates final terrain from layers
      *
      * @param {Object} layers - {height: 'lowlands', climate: 'moderate', vegetation: 'grassland'}
      * @returns {Object} Composite terrain properties
      */
     getCompositeType(layers) {
-        const height = this.getLayerType('Height', layers.height);
-        const climate = this.getLayerType('Climate', layers.climate);
-        const vegetation = this.getLayerType('Vegetation', layers.vegetation);
+        const height = this.getLayerType('height', layers.height);
+        const climate = this.getLayerType('climate', layers.climate);
+        const vegetation = this.getLayerType('vegetation', layers.vegetation);
 
         if (!height || !climate || !vegetation) {
             console.warn('Invalid layer combination:', layers);
@@ -320,126 +544,6 @@ const TerrainLayers = {
             movementCost: 1,
             layers: { height: 'lowlands', climate: 'moderate', vegetation: 'grassland' },
             description: 'Unknown terrain'
-        };
-    },
-
-    /**
-     * Get weighted random layer type for generation
-     *
-     * @param {string} layerName - 'Height', 'Climate', or 'Vegetation'
-     * @returns {string} Random layer type ID
-     */
-    getWeightedRandomLayer(layerName) {
-        const types = Object.values(this[layerName]);
-        const totalWeight = types.reduce((sum, t) => sum + (t.generationWeight || 0), 0);
-
-        let random = Math.random() * totalWeight;
-
-        for (const type of types) {
-            random -= (type.generationWeight || 0);
-            if (random <= 0) {
-                return type.id;
-            }
-        }
-
-        return types[0]?.id || 'lowlands';
-    },
-
-    /**
-     * Get valid vegetation types for a given height and climate
-     *
-     * @param {string} heightId - Height layer ID
-     * @param {string} climateId - Climate layer ID
-     * @returns {Array<string>} Array of valid vegetation IDs
-     */
-    getValidVegetation(heightId, climateId) {
-        // Water tiles have no vegetation
-        if (heightId === 'deep_water' || heightId === 'shallow_water') {
-            return ['none'];
-        }
-
-        // Mountains: very limited vegetation
-        if (heightId === 'mountains') {
-            if (climateId === 'hot') {
-                return ['none']; // Hot mountains are barren
-            } else if (climateId === 'moderate') {
-                return ['none', 'grassland']; // Sparse alpine meadows
-            } else if (climateId === 'cold') {
-                return ['none', 'tundra']; // Snow and tundra
-            }
-        }
-
-        // Hills: no swamps (swamps need lowlands)
-        if (heightId === 'hills') {
-            if (climateId === 'hot') {
-                return ['none', 'desert', 'grassland'];
-            } else if (climateId === 'moderate') {
-                return ['none', 'grassland', 'forest'];
-            } else if (climateId === 'cold') {
-                return ['none', 'tundra', 'grassland'];
-            }
-        }
-
-        // Lowlands: most diverse
-        if (heightId === 'lowlands') {
-            if (climateId === 'hot') {
-                return ['none', 'desert', 'grassland', 'forest']; // Hot jungles/forests
-            } else if (climateId === 'moderate') {
-                return ['none', 'grassland', 'forest', 'swamp'];
-            } else if (climateId === 'cold') {
-                return ['none', 'tundra', 'grassland', 'swamp']; // Frozen marshes
-            }
-        }
-
-        // Default fallback
-        return ['none', 'grassland'];
-    },
-
-    /**
-     * Check if a layer combination is valid
-     *
-     * @param {Object} layers - {height, climate, vegetation}
-     * @returns {boolean} True if combination is valid
-     */
-    isValidCombination(layers) {
-        const validVegetation = this.getValidVegetation(layers.height, layers.climate);
-        return validVegetation.includes(layers.vegetation);
-    },
-
-    /**
-     * Generate random layers for a hex (ensuring valid combinations)
-     *
-     * @returns {Object} Random valid layer combination
-     */
-    generateRandomLayers() {
-        // First, randomly select height and climate
-        const height = this.getWeightedRandomLayer('Height');
-        const climate = this.getWeightedRandomLayer('Climate');
-
-        // Then select vegetation from valid options
-        const validVegetation = this.getValidVegetation(height, climate);
-
-        // Weight the valid vegetation types based on their generation weights
-        const vegetationTypes = validVegetation.map(id =>
-            this.getLayerType('Vegetation', id)
-        ).filter(t => t !== null);
-
-        const totalWeight = vegetationTypes.reduce((sum, t) => sum + (t.generationWeight || 0), 0);
-        let random = Math.random() * totalWeight;
-
-        let vegetation = validVegetation[0]; // Default
-        for (const type of vegetationTypes) {
-            random -= (type.generationWeight || 0);
-            if (random <= 0) {
-                vegetation = type.id;
-                break;
-            }
-        }
-
-        return {
-            height: height,
-            climate: climate,
-            vegetation: vegetation
         };
     },
 
