@@ -88,7 +88,7 @@ npx http-server -p 8080
 # http://localhost:8080
 
 # Make changes to terrain data
-# Edit src/data/terrainData.json
+# Edit data/terrainData.json
 
 # Refresh browser to see changes
 # No server restart needed!
@@ -136,7 +136,7 @@ This validates the JSON structure without needing a browser.
 For deploying Settlements to a web host:
 
 1. Upload all files to your web server
-2. Ensure `src/data/terrainData.json` is accessible
+2. Ensure `data/terrainData.json` is accessible
 3. No build step required!
 
 Works on:

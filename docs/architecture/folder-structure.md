@@ -13,6 +13,9 @@ Settlements/
    style.css                   # Styles
    README.md                   # Main documentation
 
+   data/                       # Data files (JSON)
+      terrainData.json         # Terrain layer and type definitions
+
    src/                        # All source code
 
       core/                    # Foundation modules (no dependencies)
@@ -20,8 +23,8 @@ Settlements/
          terrainLayers.js     # Terrain logic (validation, generation)
          camera.js            # Viewport management
 
-      data/                    # Data declarations (separated from logic)
-         terrainData.js       # Terrain layer and type definitions
+      data/                    # Data loaders
+         dataLoader.js        # Async JSON file loader
 
       map/                     # Map data and generation
          hexMap.js            # Data storage (Hex + HexMap classes)
@@ -65,18 +68,31 @@ Independent, reusable utilities with no dependencies on other project modules.
 - Can be reused in other projects (with data files)
 - Pure functions and self-contained classes
 
-#### **src/data/** - Data Declarations
-**NEW:** Terrain data separated from implementation logic.
+#### **data/** - Data Files (JSON)
+**NEW:** Terrain data in JSON format for easy modding.
 
 | File | Purpose | Dependencies |
 |------|---------|--------------|
-| terrainData.js | All terrain layer/type definitions | None |
+| terrainData.json | All terrain layer/type definitions | None |
 
 **Characteristics:**
 - Pure data, no logic
+- JSON format - human-readable and standard
 - Easy to modify without touching code
 - Enables modding and multiple terrain configurations
-- JavaScript format allows script tag loading (no async complexity)
+- Loaded asynchronously via DataLoader
+
+#### **src/data/** - Data Loaders
+Utilities for loading external data files.
+
+| File | Purpose | Dependencies |
+|------|---------|--------------|
+| dataLoader.js | Async JSON file loader | None |
+
+**Characteristics:**
+- Handles async data loading
+- Provides error handling for missing files
+- Supports loading multiple data files
 
 #### **src/map/** - Map System
 Map data structures and terrain generation.
@@ -152,16 +168,18 @@ All project documentation organized by category.
 
 ```
 game.js (orchestrator)
+   ├─→ data/dataLoader.js (async JSON loader)
+   │      └─→ data/terrainData.json  [NEW]
    ├─→ map/hexGrid.js (wrapper)
    │      ├─→ map/hexMap.js (data)
    │      │      ├─→ core/hexMath.js
    │      │      └─→ core/terrainLayers.js
-   │      │             └─→ data/terrainData.js  [NEW]
+   │      │             └─→ loaded from data/terrainData.json  [NEW]
    │      └─→ map/mapGenerator.js (generation)
    │             ├─→ map/hexMap.js
    │             ├─→ core/hexMath.js
    │             └─→ core/terrainLayers.js
-   │                    └─→ data/terrainData.js  [NEW]
+   │                    └─→ loaded from data/terrainData.json  [NEW]
    ├─→ rendering/mapRenderer.js
    │      └─→ map/hexGrid.js
    ├─→ input/inputController.js
@@ -179,10 +197,10 @@ The script tags must respect dependencies:
 <script src="src/core/hexMath.js"></script>
 <script src="src/core/camera.js"></script>
 
-<!-- 2. Data (no dependencies) -->
-<script src="src/data/terrainData.js"></script>
+<!-- 2. Data loader (async JSON loading) -->
+<script src="src/data/dataLoader.js"></script>
 
-<!-- 3. Core with data dependencies -->
+<!-- 3. Core with data dependencies (initialized async with JSON data) -->
 <script src="src/core/terrainLayers.js"></script>
 
 <!-- 4. Map data (depends on core) -->
@@ -214,7 +232,7 @@ Each folder has a single, clear purpose:
 ### 2. **Easy Navigation**
 Developers can quickly find code:
 - Need to fix rendering? → `src/rendering/`
-- Need to change terrain? → `src/data/terrainData.js`
+- Need to change terrain? → `data/terrainData.json`
 - Need to change terrain logic? → `src/core/terrainLayers.js`
 - Need to add input? → `src/input/inputController.js`
 
@@ -232,8 +250,9 @@ import { MapGenerator } from './src/map/mapGenerator.js';
 ### 4. **Reusability**
 Core modules can be copied to other projects:
 ```bash
-cp -r src/core/ ../other-project/
-cp -r src/data/ ../other-project/
+cp -r src/core/ ../other-project/src/
+cp -r src/data/ ../other-project/src/
+cp -r data/ ../other-project/
 ```
 
 ### 5. **Scalability**
@@ -266,9 +285,9 @@ import Game from './src/game.js';
 **NEW:** Data separation enables modding:
 ```bash
 # Create alternate terrain configuration
-cp src/data/terrainData.js src/data/terrainData_fantasy.js
-# Edit terrainData_fantasy.js with custom terrain types
-# Load different config by changing script tag
+cp data/terrainData.json data/terrainData_fantasy.json
+# Edit terrainData_fantasy.json with custom terrain types
+# Load different config by changing DataLoader parameter in game.js
 ```
 
 ## Code Organization Rules
@@ -294,7 +313,8 @@ cp src/data/terrainData.js src/data/terrainData_fantasy.js
 
 ### **Rule 5: Data/Logic Separation**
 **NEW:** Keep data separate from implementation:
-- Data declarations → `src/data/`
+- Data files (JSON) → `data/`
+- Data loaders → `src/data/`
 - Implementation logic → `src/core/` or other folders
 
 ## Migration from Flat Structure
@@ -320,11 +340,13 @@ Settlements/
 **After:**
 ```
 Settlements/
+   data/
+      terrainData.json       # JSON data files
    src/
       core/
-         terrainLayers.js   # Logic only
+         terrainLayers.js    # Logic only
       data/
-         terrainData.js     # Data only
+         dataLoader.js       # Async data loader
       map/
       rendering/
       input/
@@ -346,8 +368,9 @@ Only `index.html` needed updating - script paths changed from:
 To:
 ```html
 <script src="src/core/hexMath.js"></script>
-<script src="src/data/terrainData.js"></script>
+<script src="src/data/dataLoader.js"></script>
 <script src="src/core/terrainLayers.js"></script>
+<!-- terrainData.json loaded asynchronously by game.js -->
 ```
 
 ## Adding New Features
@@ -387,24 +410,31 @@ this.unitRenderer = new UnitRenderer(this.unitManager);
 
 1. **Duplicate data file:**
 ```bash
-cp src/data/terrainData.js src/data/terrainData_scifi.js
+cp data/terrainData.json data/terrainData_scifi.json
 ```
 
 2. **Modify terrain types:**
-```javascript
-// In terrainData_scifi.js
-"WASTELAND": {
-  "id": "wasteland",
-  "name": "Wasteland",
-  "baseColor": "#8b7355",
-  // ... custom properties
+```json
+// In terrainData_scifi.json
+{
+  "layers": {
+    "vegetation": {
+      "types": {
+        "WASTELAND": {
+          "id": "wasteland",
+          "name": "Wasteland",
+          "baseColor": "#8b7355"
+        }
+      }
+    }
+  }
 }
 ```
 
-3. **Update index.html to load different config:**
-```html
-<!-- Swap this line to change terrain set -->
-<script src="src/data/terrainData_scifi.js"></script>
+3. **Update game.js to load different config:**
+```javascript
+// In src/game.js init() method
+const terrainData = await DataLoader.loadTerrainData('terrainData_scifi');
 ```
 
 ### Example: Adding Pathfinding

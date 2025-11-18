@@ -28,7 +28,7 @@ const DataLoader = {
      * @returns {Promise<Object>} Terrain data
      */
     async loadTerrainData(configName = 'terrainData') {
-        const path = `src/data/${configName}.json`;
+        const path = `data/${configName}.json`;
         console.log(`Loading terrain data from: ${path}`);
         return await this.loadJSON(path);
     },

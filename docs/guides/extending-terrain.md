@@ -35,7 +35,7 @@ The **constraint-based validation system** automatically ensures realistic terra
 
 ### File Structure
 
-- **`src/data/terrainData.js`** - All terrain layer and type definitions (DATA)
+- **`data/terrainData.json`** - All terrain layer and type definitions (DATA)
 - **`src/core/terrainLayers.js`** - Validation and generation logic (CODE)
 
 ### Benefits
@@ -64,7 +64,7 @@ The **constraint-based validation system** automatically ensures realistic terra
 
 ### Example: Adding "Jungle" Vegetation Type
 
-**Step 1: Open `src/data/terrainData.js`**
+**Step 1: Open `data/terrainData.json`**
 
 **Step 2: Add the new type to the appropriate layer**
 
@@ -124,7 +124,7 @@ const VEGETATION_COLORS = {
 
 Adding a new layer requires updates to both data and code files. Most changes are in the data file!
 
-### Step 1: Define the Layer in `src/data/terrainData.js`
+### Step 1: Define the Layer in `data/terrainData.json`
 
 Add your new layer to the `terrainData.layers` object:
 
@@ -199,7 +199,7 @@ generateRandomLayers() {
 
 ### Step 3: Update Constraints in Other Layers
 
-In `src/data/terrainData.js`, add constraints to existing types that should interact with the new layer:
+In `data/terrainData.json`, add constraints to existing types that should interact with the new layer:
 
 ```javascript
 "SWAMP": {
@@ -530,17 +530,17 @@ RAINFOREST: {
 ## Summary
 
 **To add a type:**
-1. Add type definition to layer in **`src/data/terrainData.js`** (DATA FILE)
+1. Add type definition to layer in **`data/terrainData.json`** (DATA FILE)
 2. Add debug color in `src/rendering/mapRenderer.js` (optional)
 3. Test in browser
 
 **To add a layer:**
-1. Define layer in **`src/data/terrainData.js`** (DATA FILE)
+1. Define layer in **`data/terrainData.json`** (DATA FILE)
 2. Update `generateRandomLayers()` in **`src/core/terrainLayers.js`** (CODE FILE)
 3. Update `getCompositeType()` in **`src/core/terrainLayers.js`** (CODE FILE)
-4. Add constraints to existing types in **`src/data/terrainData.js`** (DATA FILE)
+4. Add constraints to existing types in **`data/terrainData.json`** (DATA FILE)
 5. Add debug view in `src/rendering/mapRenderer.js` (optional)
 6. Update UI in `index.html` and `src/game.js` (optional)
 7. Test thoroughly
 
-**Key Principle:** Data lives in `terrainData.js`, logic lives in `terrainLayers.js`. The constraint-based system handles validation automatically - you just define the rules!
+**Key Principle:** Data lives in `terrainData.json`, logic lives in `terrainLayers.js`. The constraint-based system handles validation automatically - you just define the rules!

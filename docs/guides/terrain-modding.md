@@ -8,7 +8,7 @@ Create custom terrain configurations for Settlements using simple JSON files.
 
 1. **Duplicate the base terrain file:**
 ```bash
-cp src/data/terrainData.json src/data/myTerrainPack.json
+cp data/terrainData.json data/myTerrainPack.json
 ```
 
 2. **Edit your terrain pack** (any text editor works!)
@@ -371,7 +371,7 @@ This allows users to switch terrain packs without editing code!
 ## Summary
 
 **To create a mod:**
-1. Copy `src/data/terrainData.json`
+1. Copy `data/terrainData.json`
 2. Edit in any text editor
 3. Update `game.js` to load your file
 4. Test and share!
