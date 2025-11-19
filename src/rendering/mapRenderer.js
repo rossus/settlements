@@ -192,13 +192,15 @@ class MapRenderer {
             const sprite = this.getTerrainSprite(hex);
             const texture = this.getTerrainTexture(hex);
 
+            // Calculate corners (needed for both rendering and highlighting)
+            const corners = this.grid.getHexCorners(centerX, centerY);
+
             if (useSimplified) {
                 // Draw simple rectangle when zoomed way out (much faster)
                 ctx.fillStyle = this.getTerrainColor(hex);
                 ctx.fillRect(centerX - hexSize * 0.5, centerY - hexSize * 0.5, hexSize, hexSize);
             } else {
                 // Draw detailed hexagon
-                const corners = this.grid.getHexCorners(centerX, centerY);
                 ctx.beginPath();
                 ctx.moveTo(corners[0].x, corners[0].y);
                 for (let i = 1; i < corners.length; i++) {
@@ -222,7 +224,15 @@ class MapRenderer {
                     // Apply texture overlay if available
                     if (texture) {
                         ctx.save();
+                        // Recreate path for clipping (previous path was consumed by fill)
+                        ctx.beginPath();
+                        ctx.moveTo(corners[0].x, corners[0].y);
+                        for (let i = 1; i < corners.length; i++) {
+                            ctx.lineTo(corners[i].x, corners[i].y);
+                        }
+                        ctx.closePath();
                         ctx.clip();
+
                         const pattern = ctx.createPattern(texture, 'repeat');
                         if (pattern) {
                             ctx.fillStyle = pattern;
