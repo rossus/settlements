@@ -1,4 +1,10 @@
 {
+  "_comment": "Optional sprite/texture support: Add 'sprite' (replaces hex fill) or 'texture' (overlays on color) fields to any terrain type. Sprites fallback to baseColor if not found or failed to load.",
+  "shoreSprite": "assets/sprites/shore.png",
+  "_shoreSprite_comment": "Optional sprite for shore borders (e.g., 'assets/sprites/shore.png'). Falls back to sand color if not provided.",
+  "shoreCornerNarrow": "assets/sprites/narrow-corner.png",
+  "shoreCornerWide": "assets/sprites/wide-corner.png",
+  "_shoreCorner_comment": "Corner sprites for shore borders. Narrow for acute angles, wide for obtuse angles.",
   "layers": {
     "height": {
       "name": "Height",
@@ -8,6 +14,8 @@
           "name": "Deep Water",
           "elevation": -2,
           "baseColor": "#4a90e2",
+          "sprite": null,
+          "_sprite_comment": "Optional: Path to sprite image (e.g., 'assets/sprites/deep_water.png'). Replaces hex fill. Falls back to baseColor if not provided or load fails.",
           "walkable": false,
           "buildable": false,
           "isWater": true,
@@ -52,6 +60,8 @@
           "name": "Mountains",
           "elevation": 2,
           "baseColor": "#8b7355",
+          "texture": null,
+          "_texture_comment": "Optional: Path to texture overlay (e.g., 'assets/textures/mountains.png'). Drawn as pattern on top of baseColor. Falls back to solid color if not provided.",
           "walkable": true,
           "buildable": false,
           "isWater": false,
@@ -105,6 +115,8 @@
           "id": "grassland",
           "name": "Grassland",
           "baseColor": "#7ec850",
+          "sprite": null,
+          "_sprite_comment": "Optional: Path to sprite image (e.g., 'assets/sprites/grassland.png'). Replaces hex fill completely.",
           "movementCost": 1,
           "buildable": true,
           "generationWeight": 40,

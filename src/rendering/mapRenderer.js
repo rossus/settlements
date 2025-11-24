@@ -188,30 +188,77 @@ class MapRenderer {
             const centerX = pixel.x + offsetX;
             const centerY = pixel.y + offsetY;
 
-            // Fill with terrain color (supports both old and new systems)
-            ctx.fillStyle = this.getTerrainColor(hex);
+            // Check for sprite or texture
+            const sprite = this.getTerrainSprite(hex);
+            const texture = this.getTerrainTexture(hex);
+
+            // Calculate corners (needed for both rendering and highlighting)
+            const corners = this.grid.getHexCorners(centerX, centerY);
 
             if (useSimplified) {
-                // Draw simple rectangle when zoomed way out (much faster)
-                ctx.fillRect(centerX - hexSize * 0.5, centerY - hexSize * 0.5, hexSize, hexSize);
+                // Draw simple square when zoomed way out (much faster)
+                // Make squares slightly larger to overlap and avoid gaps
+                const rectSize = hexSize * 1.8;
+                ctx.fillStyle = this.getTerrainColor(hex);
+                ctx.fillRect(centerX - rectSize * 0.5, centerY - rectSize * 0.5, rectSize, rectSize);
             } else {
                 // Draw detailed hexagon
-                const corners = this.grid.getHexCorners(centerX, centerY);
                 ctx.beginPath();
                 ctx.moveTo(corners[0].x, corners[0].y);
                 for (let i = 1; i < corners.length; i++) {
                     ctx.lineTo(corners[i].x, corners[i].y);
                 }
                 ctx.closePath();
-                ctx.fill();
+
+                if (sprite) {
+                    // Use sprite - clip to hex shape and draw image
+                    ctx.save();
+                    ctx.clip();
+                    // Calculate sprite bounds to fit hex
+                    const radius = hexSize * 1.15; // Slightly larger to cover hex
+                    ctx.drawImage(sprite, centerX - radius, centerY - radius, radius * 2, radius * 2);
+                    ctx.restore();
+                } else {
+                    // Use color fill
+                    ctx.fillStyle = this.getTerrainColor(hex);
+                    ctx.fill();
+
+                    // Apply texture overlay if available
+                    if (texture) {
+                        ctx.save();
+                        // Recreate path for clipping (previous path was consumed by fill)
+                        ctx.beginPath();
+                        ctx.moveTo(corners[0].x, corners[0].y);
+                        for (let i = 1; i < corners.length; i++) {
+                            ctx.lineTo(corners[i].x, corners[i].y);
+                        }
+                        ctx.closePath();
+                        ctx.clip();
+
+                        const pattern = ctx.createPattern(texture, 'repeat');
+                        if (pattern) {
+                            ctx.fillStyle = pattern;
+                            ctx.fill();
+                        }
+                        ctx.restore();
+                    }
+                }
             }
 
             // Highlight if this is the hovered hex
             if (highlightHex && hex.equals(highlightHex)) {
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
                 if (useSimplified) {
-                    ctx.fillRect(centerX - hexSize * 0.5, centerY - hexSize * 0.5, hexSize, hexSize);
+                    const rectSize = hexSize * 1.8;
+                    ctx.fillRect(centerX - rectSize * 0.5, centerY - rectSize * 0.5, rectSize, rectSize);
                 } else {
+                    // Reuse hex path for highlighting
+                    ctx.beginPath();
+                    ctx.moveTo(corners[0].x, corners[0].y);
+                    for (let i = 1; i < corners.length; i++) {
+                        ctx.lineTo(corners[i].x, corners[i].y);
+                    }
+                    ctx.closePath();
                     ctx.fill();
                 }
             }
@@ -262,6 +309,14 @@ class MapRenderer {
 
             // Skip if not hills or mountains
             if (heightLayer !== 'hills' && heightLayer !== 'mountains') return;
+
+            // Skip texture overlay only if the ACTUALLY USED sprite includes height info
+            // Check if the sprite path that was loaded contains the height layer name
+            const usedSpritePath = hex._usedSpritePath;
+            if (usedSpritePath && usedSpritePath.includes(heightLayer)) {
+                // This sprite includes height info, so don't draw overlay
+                return;
+            }
 
             const pixel = this.grid.hexToPixel(hex);
             const centerX = pixel.x + offsetX;
@@ -424,12 +479,288 @@ class MapRenderer {
             }
         });
 
-        // Render using generic border renderer
-        this.renderBorders(ctx, offsetX, offsetY, borders, {
-            strokeStyle: Terrain.Colors.SAND_BORDER,
-            lineWidth: 6,
-            lineCap: 'round'
+        // Check if shore sprite is available
+        const shoreSprite = AssetLoader.getImage(TerrainLayers.shoreSprite);
+
+        if (shoreSprite) {
+            // Render using sprite-based shore rendering
+            this.renderShoreBordersWithSprite(ctx, offsetX, offsetY, borders, shoreSprite);
+        } else {
+            // Fallback to colored lines if no sprite
+            this.renderBorders(ctx, offsetX, offsetY, borders, {
+                strokeStyle: Terrain.Colors.SAND_BORDER,
+                lineWidth: 6,
+                lineCap: 'round'
+            });
+        }
+    }
+
+    /**
+     * Render shore borders using sprites with corner detection
+     * 1. Detects corners where shore edges meet
+     * 2. Draws tiled edge sprites along borders
+     * 3. Draws corner sprites at detected corners
+     *
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} offsetX - X offset
+     * @param {number} offsetY - Y offset
+     * @param {Array} borders - Border data
+     * @param {HTMLImageElement} sprite - Shore sprite image
+     */
+    renderShoreBordersWithSprite(ctx, offsetX, offsetY, borders, sprite) {
+        // Load corner sprites
+        const narrowCorner = AssetLoader.getImage(TerrainLayers.shoreCornerNarrow);
+        const wideCorner = AssetLoader.getImage(TerrainLayers.shoreCornerWide);
+
+        // Analyze sprite bounds to get visual dimensions (trimmed transparency)
+        const spriteBounds = AssetLoader.getSpriteBounds(TerrainLayers.shoreSprite);
+        const narrowBounds = narrowCorner ? AssetLoader.getSpriteBounds(TerrainLayers.shoreCornerNarrow) : null;
+        const wideBounds = wideCorner ? AssetLoader.getSpriteBounds(TerrainLayers.shoreCornerWide) : null;
+
+        console.log(`Shore rendering: ${borders.length} borders, sprite: ${sprite ? sprite.width + 'x' + sprite.height : 'null'}`);
+        console.log(`Corners loaded: narrow=${!!narrowCorner}, wide=${!!wideCorner}`);
+        if (spriteBounds) {
+            console.log(`Shore sprite visual size: ${spriteBounds.visualWidth}x${spriteBounds.visualHeight}`);
+        }
+
+        // Build edge data with vertices and orientation
+        const edges = [];
+        const vertexMap = new Map(); // Map vertex key -> array of edges meeting at that vertex
+
+        borders.forEach(border => {
+            const sharedEdge = this.calculateSharedEdge(border.hex1, border.hex2, offsetX, offsetY);
+            if (!sharedEdge) return;
+
+            const { corner1, corner2 } = sharedEdge;
+
+            // Determine which hex is water and which is land
+            const hex1IsWater = this.grid.isHexWater(border.hex1);
+            const hex2IsWater = this.grid.isHexWater(border.hex2);
+
+            // Calculate edge properties
+            const edgeLength = Math.sqrt(
+                Math.pow(corner2.x - corner1.x, 2) +
+                Math.pow(corner2.y - corner1.y, 2)
+            );
+
+            const edgeAngle = Math.atan2(
+                corner2.y - corner1.y,
+                corner2.x - corner1.x
+            );
+
+            const midX = (corner1.x + corner2.x) / 2;
+            const midY = (corner1.y + corner2.y) / 2;
+
+            // Calculate hex centers to determine orientation
+            const hex1Pixel = this.grid.hexToPixel(border.hex1);
+            const hex2Pixel = this.grid.hexToPixel(border.hex2);
+            const hex1CenterX = hex1Pixel.x + offsetX;
+            const hex1CenterY = hex1Pixel.y + offsetY;
+            const hex2CenterX = hex2Pixel.x + offsetX;
+            const hex2CenterY = hex2Pixel.y + offsetY;
+
+            // Determine land side of the edge
+            const landCenterX = hex1IsWater ? hex2CenterX : hex1CenterX;
+            const landCenterY = hex1IsWater ? hex2CenterY : hex1CenterY;
+
+            const edgeData = {
+                corner1,
+                corner2,
+                edgeLength,
+                edgeAngle,
+                midX,
+                midY,
+                landCenterX,
+                landCenterY,
+                hex1IsWater,
+                hex2IsWater
+            };
+
+            edges.push(edgeData);
+
+            // Register this edge at both vertices
+            const v1Key = `${corner1.x.toFixed(2)},${corner1.y.toFixed(2)}`;
+            const v2Key = `${corner2.x.toFixed(2)},${corner2.y.toFixed(2)}`;
+
+            if (!vertexMap.has(v1Key)) vertexMap.set(v1Key, []);
+            if (!vertexMap.has(v2Key)) vertexMap.set(v2Key, []);
+
+            vertexMap.get(v1Key).push({ edge: edgeData, isStart: true });
+            vertexMap.get(v2Key).push({ edge: edgeData, isStart: false });
         });
+
+        // Step 1: Draw all edges (tiled, not stretched)
+        console.log(`Drawing ${edges.length} shore edges...`);
+
+        // Calculate average scaled height of shore sprites for corner calibration
+        let totalScaledHeight = 0;
+        let edgeCount = 0;
+
+        edges.forEach(edge => {
+            const scaledHeight = this.drawTiledShoreEdge(ctx, edge, sprite, spriteBounds);
+            if (scaledHeight) {
+                totalScaledHeight += scaledHeight;
+                edgeCount++;
+            }
+        });
+
+        const avgShoreHeight = edgeCount > 0 ? totalScaledHeight / edgeCount : 50;
+        console.log(`Average shore sprite height: ${avgShoreHeight.toFixed(1)}px`);
+
+        // Step 2: Draw corners where 2+ edges meet
+        if (narrowCorner && wideCorner) {
+            let cornerCount = 0;
+            vertexMap.forEach((edgeRefs, vertexKey) => {
+                if (edgeRefs.length >= 2) {
+                    cornerCount++;
+                    const [x, y] = vertexKey.split(',').map(parseFloat);
+                    this.drawShoreCorner(ctx, x, y, edgeRefs, narrowCorner, wideCorner, narrowBounds, wideBounds, avgShoreHeight);
+                }
+            });
+            console.log(`Drew ${cornerCount} shore corners`);
+        } else {
+            console.log('Corner sprites not available, skipping corners');
+        }
+    }
+
+    /**
+     * Draw a tiled shore edge sprite along a border
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Object} edge - Edge data
+     * @param {HTMLImageElement} sprite - Shore sprite image
+     * @param {Object} spriteBounds - Visual bounds of sprite (trimmed transparency)
+     * @returns {number} The scaled height of the sprite for corner calibration
+     */
+    drawTiledShoreEdge(ctx, edge, sprite, spriteBounds) {
+        const { corner1, corner2, edgeLength, edgeAngle, midX, midY, landCenterX, landCenterY } = edge;
+
+        // Determine orientation - which direction faces land
+        const toLandX = landCenterX - midX;
+        const toLandY = landCenterY - midY;
+
+        const perpAngle = edgeAngle + Math.PI / 2;
+        const perpX = Math.cos(perpAngle);
+        const perpY = Math.sin(perpAngle);
+
+        const dotProduct = toLandX * perpX + toLandY * perpY;
+        const needsFlip = dotProduct > 0;
+
+        // Use visual bounds if available, otherwise fall back to full sprite
+        const visualHeight = spriteBounds ? spriteBounds.visualHeight : sprite.height;
+        const visualWidth = spriteBounds ? spriteBounds.visualWidth : sprite.width;
+
+        // Natural aspect ratio
+        const aspectRatio = visualWidth / visualHeight;
+
+        // Target height for initial sizing
+        const targetHeight = 50;
+        const naturalScaledWidth = targetHeight * aspectRatio;
+
+        // Calculate how many tiles we need based on natural width
+        const numTiles = Math.max(1, Math.ceil(edgeLength / naturalScaledWidth));
+
+        // Scale proportionally to fit edge exactly - both width AND height
+        const scaledTileWidth = edgeLength / numTiles;
+        const scaledTileHeight = scaledTileWidth / aspectRatio; // Maintain aspect ratio!
+
+        ctx.save();
+
+        // Move to start of edge
+        ctx.translate(corner1.x, corner1.y);
+        ctx.rotate(edgeAngle);
+
+        if (needsFlip) {
+            // Flip vertically to orient land side correctly
+            ctx.scale(1, -1);
+        }
+
+        // Draw tiles along the edge with proportional scaling
+        for (let i = 0; i < numTiles; i++) {
+            const x = i * scaledTileWidth;
+            ctx.drawImage(
+                sprite,
+                x,
+                -scaledTileHeight / 2,
+                scaledTileWidth,
+                scaledTileHeight  // Both dimensions scaled proportionally
+            );
+        }
+
+        ctx.restore();
+
+        // Return scaled height for corner calibration
+        return scaledTileHeight;
+    }
+
+    /**
+     * Draw a corner sprite where shore edges meet
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} x - Corner x position
+     * @param {number} y - Corner y position
+     * @param {Array} edgeRefs - References to edges meeting at this corner
+     * @param {HTMLImageElement} narrowCorner - Narrow corner sprite
+     * @param {HTMLImageElement} wideCorner - Wide corner sprite
+     * @param {Object} narrowBounds - Narrow corner bounds
+     * @param {Object} wideBounds - Wide corner bounds
+     * @param {number} actualShoreHeight - Actual scaled height of shore sprites
+     */
+    drawShoreCorner(ctx, x, y, edgeRefs, narrowCorner, wideCorner, narrowBounds, wideBounds, actualShoreHeight) {
+        if (edgeRefs.length < 2) return;
+
+        // Calculate the average land direction from all edges meeting here
+        let landDirX = 0;
+        let landDirY = 0;
+
+        edgeRefs.forEach(ref => {
+            const { edge } = ref;
+            const { midX, midY, landCenterX, landCenterY } = edge;
+            const toLandX = landCenterX - midX;
+            const toLandY = landCenterY - midY;
+            const len = Math.sqrt(toLandX * toLandX + toLandY * toLandY);
+            landDirX += toLandX / len;
+            landDirY += toLandY / len;
+        });
+
+        const avgLandAngle = Math.atan2(landDirY, landDirX);
+
+        // Calculate the angle between edges to determine corner type
+        const angles = edgeRefs.map(ref => ref.edge.edgeAngle);
+        let maxAngleDiff = 0;
+
+        for (let i = 0; i < angles.length; i++) {
+            for (let j = i + 1; j < angles.length; j++) {
+                let diff = Math.abs(angles[i] - angles[j]);
+                if (diff > Math.PI) diff = 2 * Math.PI - diff;
+                maxAngleDiff = Math.max(maxAngleDiff, diff);
+            }
+        }
+
+        // Choose corner sprite based on angle
+        // Narrow corner for acute angles (< 100 degrees), wide for obtuse
+        const useNarrow = maxAngleDiff < (100 * Math.PI / 180);
+        const cornerSprite = useNarrow ? narrowCorner : wideCorner;
+        const cornerBounds = useNarrow ? narrowBounds : wideBounds;
+
+        // AUTO-CALIBRATE: Match corner size to ACTUAL shore sprite height
+        const cornerVisualSize = cornerBounds ? Math.max(cornerBounds.visualWidth, cornerBounds.visualHeight) : cornerSprite.width;
+
+        // Scale corner to match the actual scaled height of shore sprites
+        const scaleFactor = actualShoreHeight / cornerVisualSize;
+        const scaledCornerSize = cornerVisualSize * scaleFactor;
+
+        console.log(`Corner: visual=${cornerVisualSize.toFixed(0)}px, scaled=${scaledCornerSize.toFixed(0)}px (matched to shore height ${actualShoreHeight.toFixed(0)}px)`);
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(avgLandAngle - Math.PI / 2); // Rotate to point land side correctly
+        ctx.drawImage(
+            cornerSprite,
+            -scaledCornerSize / 2,
+            -scaledCornerSize / 2,
+            scaledCornerSize,
+            scaledCornerSize
+        );
+        ctx.restore();
     }
 
 
@@ -779,6 +1110,61 @@ class MapRenderer {
      */
     getTerrainColor(hex) {
         return hex.terrainComposite.color;
+    }
+
+    /**
+     * Get sprite for a hex's terrain using hierarchical fallback
+     * Tries multiple paths from most specific to least specific:
+     * 1. vegetation-climate-height (e.g., forest-hot-mountains.png)
+     * 2. vegetation-height (e.g., forest-mountains.png)
+     * 3. vegetation-climate (e.g., forest-hot.png)
+     * 4. vegetation only (e.g., forest.png)
+     * 5. height only (e.g., mountains.png)
+     * 6. climate only (e.g., hot.png)
+     *
+     * @param {Hex} hex - The hex
+     * @returns {HTMLImageElement|null} Sprite image or null
+     */
+    getTerrainSprite(hex) {
+        if (!hex.layers) return null;
+
+        // Get hierarchical sprite paths
+        const paths = TerrainLayers.getSpritePaths(hex.layers);
+
+        // Try each path in order until we find a loaded sprite
+        for (const path of paths) {
+            const sprite = AssetLoader.getImage(path);
+            if (sprite) {
+                // Cache which sprite path was used for this hex
+                hex._usedSpritePath = path;
+                return sprite;
+            }
+        }
+
+        hex._usedSpritePath = null;
+        return null; // No sprite available, use color
+    }
+
+    /**
+     * Get texture overlay for a hex's terrain using hierarchical fallback
+     * Same priority order as sprites
+     *
+     * @param {Hex} hex - The hex
+     * @returns {HTMLImageElement|null} Texture image or null
+     */
+    getTerrainTexture(hex) {
+        if (!hex.layers) return null;
+
+        // Get hierarchical texture paths
+        const paths = TerrainLayers.getTexturePaths(hex.layers);
+
+        // Try each path in order until we find a loaded texture
+        for (const path of paths) {
+            const texture = AssetLoader.getImage(path);
+            if (texture) return texture;
+        }
+
+        return null; // No texture available
     }
 
     /**
