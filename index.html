@@ -17,9 +17,14 @@
                 <select id="worldSize" class="world-size-select">
                     <option value="tiny">Tiny</option>
                     <option value="small">Small</option>
-                    <option value="medium" selected>Medium</option>
+                    <option value="medium" selected">Medium</option>
                     <option value="large">Large</option>
                     <option value="huge">Huge</option>
+                </select>
+                <label for="generationMode" class="control-label">Generation:</label>
+                <select id="generationMode" class="generation-mode-select">
+                    <option value="random">Random</option>
+                    <option value="perlin" selected>Perlin Noise</option>
                 </select>
                 <button id="toggleGridBtn">Hide Grid</button>
                 <button id="toggleLODBtn">LOD: On</button>
@@ -49,6 +54,9 @@
 
     <!-- Terrain system (initialized with loaded data) -->
     <script src="src/core/terrainLayers.js"></script>
+
+    <!-- Noise generation -->
+    <script src="src/utils/simplexNoise.js"></script>
 
     <!-- Map system -->
     <script src="src/map/hexMap.js"></script>

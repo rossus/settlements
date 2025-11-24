@@ -80,8 +80,8 @@ screenshots/
 *.png
 *.jpg
 *.jpeg
-!docs/assets/*.png
-!docs/assets/*.jpg
+!assets/*.png
+!assets/*.jpg
 
 # Documentation builds
 docs/_build/
