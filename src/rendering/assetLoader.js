@@ -12,17 +12,27 @@ const AssetLoader = {
     // Track loading state
     loadingPromises: new Map(),
 
+    // Cache of sprite bounds (trimmed transparency)
+    spriteBounds: new Map(),
+
     /**
      * Load a single image
      * @param {string} path - Path to image file
+     * @param {boolean} forceReload - Force reload even if cached
      * @returns {Promise<HTMLImageElement|null>} Loaded image or null if failed
      */
-    async loadImage(path) {
+    async loadImage(path, forceReload = false) {
         if (!path) return null;
 
-        // Return cached image if already loaded
-        if (this.images.has(path)) {
+        // Return cached image if already loaded (unless force reload)
+        if (!forceReload && this.images.has(path)) {
             return this.images.get(path);
+        }
+
+        // If force reload, remove from cache
+        if (forceReload) {
+            this.images.delete(path);
+            this.loadingPromises.delete(path);
         }
 
         // Return existing promise if currently loading
@@ -37,7 +47,7 @@ const AssetLoader = {
             img.onload = () => {
                 this.images.set(path, img);
                 this.loadingPromises.delete(path);
-                console.log(`✓ Loaded sprite: ${path}`);
+                console.log(`✓ Loaded sprite: ${path}${forceReload ? ' (force reload)' : ''}`);
                 resolve(img);
             };
 
@@ -47,7 +57,9 @@ const AssetLoader = {
                 resolve(null); // Resolve with null instead of rejecting
             };
 
-            img.src = path;
+            // Add cache-busting parameter if force reload
+            const cacheBustUrl = forceReload ? `${path}?_cb=${Date.now()}` : path;
+            img.src = cacheBustUrl;
         });
 
         this.loadingPromises.set(path, promise);
@@ -121,11 +133,168 @@ const AssetLoader = {
     },
 
     /**
+     * Find and load the first available image from a list of paths
+     * Tries paths in order and returns the first one that loads successfully
+     *
+     * @param {Array<string>} paths - Array of image paths in priority order
+     * @returns {Promise<{image: HTMLImageElement|null, path: string|null}>} First loaded image and its path, or null if all fail
+     */
+    async findFirstAvailableImage(paths) {
+        if (!paths || paths.length === 0) {
+            return { image: null, path: null };
+        }
+
+        // Check if any are already loaded in cache
+        for (const path of paths) {
+            if (this.isLoaded(path)) {
+                return { image: this.getImage(path), path: path };
+            }
+        }
+
+        // Try loading each path in order until one succeeds
+        for (const path of paths) {
+            const image = await this.loadImage(path);
+            if (image) {
+                return { image, path };
+            }
+        }
+
+        // All paths failed
+        return { image: null, path: null };
+    },
+
+    /**
+     * Preload sprites for all possible layer combinations
+     * Optimistically tries to load sprites in priority order
+     *
+     * @param {Array<Object>} hexes - Array of hex objects with layers property
+     * @param {string} baseDir - Base directory for sprites
+     * @returns {Promise<void>}
+     */
+    async preloadSpritesForHexes(hexes, baseDir = 'assets/sprites/') {
+        const allPaths = new Set();
+
+        // Collect all possible sprite paths from all hexes
+        hexes.forEach(hex => {
+            if (hex.layers) {
+                const paths = TerrainLayers.getSpritePaths(hex.layers, baseDir);
+                paths.forEach(path => allPaths.add(path));
+            }
+        });
+
+        // Try to load all paths (failures will be silently handled)
+        const pathArray = Array.from(allPaths);
+        if (pathArray.length > 0) {
+            console.log(`Preloading ${pathArray.length} potential sprite(s)...`);
+            await this.loadImages(pathArray);
+        }
+    },
+
+    /**
+     * Analyze sprite to find non-transparent bounds
+     * Returns the actual visual dimensions after trimming transparency
+     *
+     * @param {HTMLImageElement} image - The sprite image
+     * @returns {Object} {x, y, width, height, visualWidth, visualHeight}
+     */
+    analyzeSpriteTransparency(image) {
+        // Create temporary canvas for pixel analysis
+        const canvas = document.createElement('canvas');
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const ctx = canvas.getContext('2d');
+
+        // Draw image
+        ctx.drawImage(image, 0, 0);
+
+        // Get pixel data
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const pixels = imageData.data;
+
+        let minX = canvas.width;
+        let minY = canvas.height;
+        let maxX = 0;
+        let maxY = 0;
+
+        // Scan for non-transparent pixels
+        for (let y = 0; y < canvas.height; y++) {
+            for (let x = 0; x < canvas.width; x++) {
+                const i = (y * canvas.width + x) * 4;
+                const alpha = pixels[i + 3];
+
+                // If pixel is not fully transparent
+                if (alpha > 10) { // Small threshold to ignore near-transparent pixels
+                    minX = Math.min(minX, x);
+                    minY = Math.min(minY, y);
+                    maxX = Math.max(maxX, x);
+                    maxY = Math.max(maxY, y);
+                }
+            }
+        }
+
+        // Calculate bounds
+        const bounds = {
+            x: minX,
+            y: minY,
+            width: maxX - minX + 1,
+            height: maxY - minY + 1,
+            visualWidth: maxX - minX + 1,
+            visualHeight: maxY - minY + 1,
+            fullWidth: image.width,
+            fullHeight: image.height
+        };
+
+        return bounds;
+    },
+
+    /**
+     * Get cached bounds for a sprite, or analyze if not cached
+     * @param {string} path - Path to sprite
+     * @returns {Object|null} Bounds object or null if sprite not loaded
+     */
+    getSpriteBounds(path) {
+        if (!path) return null;
+
+        // Return cached bounds
+        if (this.spriteBounds.has(path)) {
+            return this.spriteBounds.get(path);
+        }
+
+        // Get image
+        const image = this.images.get(path);
+        if (!image) return null;
+
+        // Analyze and cache
+        const bounds = this.analyzeSpriteTransparency(image);
+        this.spriteBounds.set(path, bounds);
+
+        console.log(`Sprite bounds for ${path}: visual ${bounds.visualWidth}x${bounds.visualHeight} (full ${bounds.fullWidth}x${bounds.fullHeight})`);
+
+        return bounds;
+    },
+
+    /**
+     * Force reload specific images (clears from cache and reloads)
+     * @param {Array<string>} paths - Array of image paths to reload
+     * @returns {Promise<void>}
+     */
+    async reloadImages(paths) {
+        const uniquePaths = [...new Set(paths)].filter(p => p);
+        console.log(`Force reloading ${uniquePaths.length} image(s)...`);
+        const promises = uniquePaths.map(path => this.loadImage(path, true));
+        await Promise.all(promises);
+
+        // Clear bounds cache for reloaded images
+        uniquePaths.forEach(path => this.spriteBounds.delete(path));
+    },
+
+    /**
      * Clear all cached images
      */
     clear() {
         this.images.clear();
         this.loadingPromises.clear();
+        this.spriteBounds.clear();
     }
 };
 

@@ -1,7 +1,10 @@
 {
   "_comment": "Optional sprite/texture support: Add 'sprite' (replaces hex fill) or 'texture' (overlays on color) fields to any terrain type. Sprites fallback to baseColor if not found or failed to load.",
-  "shoreSprite": null,
+  "shoreSprite": "assets/sprites/shore.png",
   "_shoreSprite_comment": "Optional sprite for shore borders (e.g., 'assets/sprites/shore.png'). Falls back to sand color if not provided.",
+  "shoreCornerNarrow": "assets/sprites/narrow-corner.png",
+  "shoreCornerWide": "assets/sprites/wide-corner.png",
+  "_shoreCorner_comment": "Corner sprites for shore borders. Narrow for acute angles, wide for obtuse angles.",
   "layers": {
     "height": {
       "name": "Height",

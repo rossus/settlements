@@ -58,10 +58,6 @@ class Game {
             // Initialize terrain system with loaded data
             TerrainLayers.init(terrainData);
 
-            // Load sprites/textures (non-blocking, fallback to colors if failed)
-            this.updateStatus('Loading sprites...');
-            await AssetLoader.loadTerrainSprites(terrainData);
-
             this.updateStatus('Initializing game...');
 
             // Set canvas size to window size
@@ -69,6 +65,34 @@ class Game {
 
             // Create rectangular hex grid
             this.grid = new HexGrid(this.gridWidth, this.gridHeight, this.hexSize);
+
+            // Preload hierarchical sprites based on generated terrain
+            this.updateStatus('Loading sprites...');
+            const hexes = Array.from(this.grid.hexes.values());
+            await AssetLoader.preloadSpritesForHexes(hexes);
+
+            // Also try to load textures
+            const texturePaths = new Set();
+            hexes.forEach(hex => {
+                if (hex.layers) {
+                    const paths = TerrainLayers.getTexturePaths(hex.layers);
+                    paths.forEach(path => texturePaths.add(path));
+                }
+            });
+            if (texturePaths.size > 0) {
+                await AssetLoader.loadImages(Array.from(texturePaths));
+            }
+
+            // Load shore sprites if defined
+            if (TerrainLayers.shoreSprite) {
+                await AssetLoader.loadImage(TerrainLayers.shoreSprite);
+            }
+            if (TerrainLayers.shoreCornerNarrow) {
+                await AssetLoader.loadImage(TerrainLayers.shoreCornerNarrow);
+            }
+            if (TerrainLayers.shoreCornerWide) {
+                await AssetLoader.loadImage(TerrainLayers.shoreCornerWide);
+            }
 
             // Create renderer
             this.renderer = new MapRenderer(this.grid);
@@ -172,11 +196,28 @@ class Game {
     /**
      * Reset the game
      */
-    reset() {
+    async reset() {
         // Regenerate the grid with new random terrain
         this.grid = new HexGrid(this.gridWidth, this.gridHeight, this.hexSize);
         this.renderer.setGrid(this.grid);
         this.inputController.setGrid(this.grid);
+
+        // Preload sprites for new terrain
+        this.updateStatus('Loading sprites...');
+        const hexes = Array.from(this.grid.hexes.values());
+        await AssetLoader.preloadSpritesForHexes(hexes);
+
+        // Load shore sprites if defined
+        if (TerrainLayers.shoreSprite) {
+            await AssetLoader.loadImage(TerrainLayers.shoreSprite);
+        }
+        if (TerrainLayers.shoreCornerNarrow) {
+            await AssetLoader.loadImage(TerrainLayers.shoreCornerNarrow);
+        }
+        if (TerrainLayers.shoreCornerWide) {
+            await AssetLoader.loadImage(TerrainLayers.shoreCornerWide);
+        }
+
         // Camera position and zoom are preserved
         this.render();
         const sizeName = this.worldSizes[this.currentWorldSize].name;
@@ -186,7 +227,7 @@ class Game {
     /**
      * Change world size
      */
-    changeWorldSize(size) {
+    async changeWorldSize(size) {
         if (!this.worldSizes[size]) return;
 
         this.currentWorldSize = size;
@@ -197,6 +238,22 @@ class Game {
         this.grid = new HexGrid(this.gridWidth, this.gridHeight, this.hexSize);
         this.renderer.setGrid(this.grid);
         this.inputController.setGrid(this.grid);
+
+        // Preload sprites for new terrain
+        this.updateStatus('Loading sprites...');
+        const hexes = Array.from(this.grid.hexes.values());
+        await AssetLoader.preloadSpritesForHexes(hexes);
+
+        // Load shore sprites if defined
+        if (TerrainLayers.shoreSprite) {
+            await AssetLoader.loadImage(TerrainLayers.shoreSprite);
+        }
+        if (TerrainLayers.shoreCornerNarrow) {
+            await AssetLoader.loadImage(TerrainLayers.shoreCornerNarrow);
+        }
+        if (TerrainLayers.shoreCornerWide) {
+            await AssetLoader.loadImage(TerrainLayers.shoreCornerWide);
+        }
 
         // Reset camera to center on new map
         this.camera.reset();
@@ -275,6 +332,22 @@ class Game {
     }
 
     /**
+     * Force reload shore sprites (useful when sprites are updated)
+     */
+    async reloadShoreSprites() {
+        console.log('Reloading shore sprites...');
+        const spritesToReload = [
+            TerrainLayers.shoreSprite,
+            TerrainLayers.shoreCornerNarrow,
+            TerrainLayers.shoreCornerWide
+        ].filter(p => p);
+
+        await AssetLoader.reloadImages(spritesToReload);
+        this.render();
+        console.log('Shore sprites reloaded and map re-rendered');
+    }
+
+    /**
      * Update info display
      */
     updateInfo(message) {
@@ -300,6 +373,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await game.init();
 
         console.log('Settlements game initialized');
+        console.log('💡 Dev tip: To reload shore sprites after updating files, run: game.reloadShoreSprites()');
     } catch (error) {
         console.error('Failed to start game:', error);
     }

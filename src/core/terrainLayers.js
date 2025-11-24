@@ -28,6 +28,8 @@ const TerrainLayers = {
         }
         this.layers = terrainData.layers;
         this.shoreSprite = terrainData.shoreSprite || null; // Optional shore sprite path
+        this.shoreCornerNarrow = terrainData.shoreCornerNarrow || null; // Optional narrow corner sprite
+        this.shoreCornerWide = terrainData.shoreCornerWide || null; // Optional wide corner sprite
         console.log('TerrainLayers initialized with', Object.keys(this.layers).length, 'layers');
     },
 
@@ -366,6 +368,109 @@ const TerrainLayers = {
 
         // Draw border if one is water and the other is land
         return (isType1Water && !isType2Water) || (!isType1Water && isType2Water);
+    },
+
+    /**
+     * Generate hierarchical sprite paths for layer combination
+     * Returns paths in priority order (most specific to least specific)
+     *
+     * @param {Object} layers - {height: 'lowlands', climate: 'moderate', vegetation: 'grassland'}
+     * @param {string} baseDir - Base directory for sprites (e.g., 'assets/sprites/')
+     * @param {string} extension - File extension (default: '.png')
+     * @returns {Array<string>} Array of sprite paths in priority order
+     */
+    getSpritePaths(layers, baseDir = 'assets/sprites/', extension = '.png') {
+        const paths = [];
+        const { height, climate, vegetation } = layers;
+
+        if (!height || !climate || !vegetation) {
+            return paths;
+        }
+
+        // Check if this is water terrain
+        const heightType = this.getLayerType('height', height);
+        const isWater = heightType && heightType.isWater;
+
+        // WATER TILES: Height takes priority (water overrides vegetation)
+        if (isWater) {
+            // Priority 1: Height + Climate (e.g., "deep_water-hot.png")
+            paths.push(`${baseDir}${height}-${climate}${extension}`);
+
+            // Priority 2: Height only (e.g., "deep_water.png")
+            paths.push(`${baseDir}${height}${extension}`);
+
+            // Priority 3: Climate only (e.g., "hot.png")
+            paths.push(`${baseDir}${climate}${extension}`);
+
+            return paths;
+        }
+
+        // BARREN/NONE VEGETATION: Height takes priority over vegetation
+        if (vegetation === 'none') {
+            // Priority 1: Full combination (none-climate-height)
+            paths.push(`${baseDir}${vegetation}-${climate}-${height}${extension}`);
+
+            // Priority 2: Height + Climate (e.g., "mountains-hot.png")
+            paths.push(`${baseDir}${height}-${climate}${extension}`);
+
+            // Priority 3: Height only (e.g., "mountains.png")
+            paths.push(`${baseDir}${height}${extension}`);
+
+            // Priority 4: None + Height (e.g., "none-mountains.png")
+            paths.push(`${baseDir}${vegetation}-${height}${extension}`);
+
+            // Priority 5: None + Climate (e.g., "none-hot.png")
+            paths.push(`${baseDir}${vegetation}-${climate}${extension}`);
+
+            // Priority 6: None only (e.g., "none.png")
+            paths.push(`${baseDir}${vegetation}${extension}`);
+
+            // Priority 7: Climate only (e.g., "hot.png")
+            paths.push(`${baseDir}${climate}${extension}`);
+
+            return paths;
+        }
+
+        // NORMAL VEGETATION: Vegetation takes priority
+        // Priority 1: Full combination (vegetation-climate-height)
+        // e.g., "forest-hot-mountains.png"
+        paths.push(`${baseDir}${vegetation}-${climate}-${height}${extension}`);
+
+        // Priority 2: Vegetation + Height
+        // e.g., "forest-mountains.png"
+        paths.push(`${baseDir}${vegetation}-${height}${extension}`);
+
+        // Priority 3: Vegetation + Climate
+        // e.g., "forest-hot.png"
+        paths.push(`${baseDir}${vegetation}-${climate}${extension}`);
+
+        // Priority 4: Vegetation only
+        // e.g., "forest.png"
+        paths.push(`${baseDir}${vegetation}${extension}`);
+
+        // Priority 5: Height only
+        // e.g., "mountains.png"
+        paths.push(`${baseDir}${height}${extension}`);
+
+        // Priority 6: Climate only
+        // e.g., "hot.png"
+        paths.push(`${baseDir}${climate}${extension}`);
+
+        return paths;
+    },
+
+    /**
+     * Generate hierarchical texture paths for layer combination
+     * Same as getSpritePaths but for textures
+     *
+     * @param {Object} layers - {height: 'lowlands', climate: 'moderate', vegetation: 'grassland'}
+     * @param {string} baseDir - Base directory for textures (e.g., 'assets/textures/')
+     * @param {string} extension - File extension (default: '.png')
+     * @returns {Array<string>} Array of texture paths in priority order
+     */
+    getTexturePaths(layers, baseDir = 'assets/textures/', extension = '.png') {
+        // Use same logic as sprites
+        return this.getSpritePaths(layers, baseDir, extension);
     }
 };
 
