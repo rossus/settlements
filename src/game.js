@@ -63,8 +63,9 @@ class Game {
             // Set canvas size to window size
             this.updateCanvasSize();
 
-            // Create rectangular hex grid
-            this.grid = new HexGrid(this.gridWidth, this.gridHeight, this.hexSize);
+            // Create rectangular hex grid with generation options
+            const algorithm = this.getGenerationAlgorithm();
+            this.grid = new HexGrid(this.gridWidth, this.gridHeight, this.hexSize, { algorithm });
 
             // Preload hierarchical sprites based on generated terrain
             this.updateStatus('Loading sprites...');
@@ -143,6 +144,9 @@ class Game {
         // World size dropdown
         document.getElementById('worldSize').addEventListener('change', (e) => this.changeWorldSize(e.target.value));
 
+        // Generation mode dropdown
+        document.getElementById('generationMode').addEventListener('change', (e) => this.changeGenerationMode(e.target.value));
+
         // Toggle grid button
         document.getElementById('toggleGridBtn').addEventListener('click', () => this.toggleGrid());
 
@@ -197,8 +201,9 @@ class Game {
      * Reset the game
      */
     async reset() {
-        // Regenerate the grid with new random terrain
-        this.grid = new HexGrid(this.gridWidth, this.gridHeight, this.hexSize);
+        // Regenerate the grid with selected generation algorithm
+        const algorithm = this.getGenerationAlgorithm();
+        this.grid = new HexGrid(this.gridWidth, this.gridHeight, this.hexSize, { algorithm });
         this.renderer.setGrid(this.grid);
         this.inputController.setGrid(this.grid);
 
@@ -234,8 +239,9 @@ class Game {
         this.gridWidth = this.worldSizes[size].width;
         this.gridHeight = this.worldSizes[size].height;
 
-        // Regenerate grid with new size
-        this.grid = new HexGrid(this.gridWidth, this.gridHeight, this.hexSize);
+        // Regenerate grid with new size and selected generation algorithm
+        const algorithm = this.getGenerationAlgorithm();
+        this.grid = new HexGrid(this.gridWidth, this.gridHeight, this.hexSize, { algorithm });
         this.renderer.setGrid(this.grid);
         this.inputController.setGrid(this.grid);
 
@@ -303,6 +309,27 @@ class Game {
         } else {
             this.updateStatus('Debug view disabled');
         }
+    }
+
+    /**
+     * Get the current generation algorithm from UI selector
+     */
+    getGenerationAlgorithm() {
+        const selector = document.getElementById('generationMode');
+        return selector ? selector.value : 'perlin';
+    }
+
+    /**
+     * Change generation mode and regenerate map
+     */
+    async changeGenerationMode(mode) {
+        const modeName = mode === 'perlin' ? 'Perlin Noise' : 'Random';
+        this.updateStatus(`Switching to ${modeName} generation...`);
+
+        // Regenerate map with new algorithm
+        await this.reset();
+
+        this.updateStatus(`Generation mode changed to ${modeName}`);
     }
 
     /**
