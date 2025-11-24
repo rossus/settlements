@@ -42,21 +42,25 @@ jobs:
       - name: Determine version bump type
         id: bump_type
         run: |
-          # Get the commit message
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
-          echo "Commit message: $COMMIT_MSG"
+          # Get the commit message (using heredoc to safely handle special characters)
+          COMMIT_MSG=$(cat <<'EOF'
+          ${{ github.event.head_commit.message }}
+          EOF
+          )
+          echo "Commit message (first line): $(echo "$COMMIT_MSG" | head -n 1)"
 
-          # Determine bump type based on conventional commits
-          if [[ $COMMIT_MSG =~ ^feat(\(.*\))?!:|^BREAKING[[:space:]]CHANGE: ]]; then
+          # Determine bump type based on conventional commits (check first line only)
+          FIRST_LINE=$(echo "$COMMIT_MSG" | head -n 1)
+          if [[ $FIRST_LINE =~ ^feat(\(.*\))?!:|^BREAKING[[:space:]]CHANGE: ]]; then
             echo "type=minor" >> $GITHUB_OUTPUT
             echo "Bump type: MINOR (breaking change or major feature)"
-          elif [[ $COMMIT_MSG =~ ^feat(\(.*\))?: ]]; then
+          elif [[ $FIRST_LINE =~ ^feat(\(.*\))?: ]]; then
             echo "type=minor" >> $GITHUB_OUTPUT
             echo "Bump type: MINOR (new feature)"
-          elif [[ $COMMIT_MSG =~ ^fix(\(.*\))?: ]]; then
+          elif [[ $FIRST_LINE =~ ^fix(\(.*\))?: ]]; then
             echo "type=patch" >> $GITHUB_OUTPUT
             echo "Bump type: PATCH (bug fix)"
-          elif [[ $COMMIT_MSG =~ ^perf(\(.*\))?: ]]; then
+          elif [[ $FIRST_LINE =~ ^perf(\(.*\))?: ]]; then
             echo "type=patch" >> $GITHUB_OUTPUT
             echo "Bump type: PATCH (performance improvement)"
           else
@@ -116,25 +120,29 @@ jobs:
         if: steps.bump_type.outputs.type != 'none'
         run: |
           NEW_VERSION="${{ steps.new_version.outputs.version }}"
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          # Get commit message safely using heredoc
+          COMMIT_MSG=$(cat <<'EOF'
+          ${{ github.event.head_commit.message }}
+          EOF
+          )
           COMMIT_HASH="${{ github.sha }}"
           SHORT_HASH="${COMMIT_HASH:0:7}"
           DATE=$(date +%Y-%m-%d)
           BUMP_TYPE="${{ steps.bump_type.outputs.type }}"
 
+          # Extract commit message (first line only)
+          FIRST_LINE=$(echo "$COMMIT_MSG" | head -n 1)
+
           # Determine change category
-          if [[ $COMMIT_MSG =~ ^feat ]]; then
+          if [[ $FIRST_LINE =~ ^feat ]]; then
             CATEGORY="Added"
-          elif [[ $COMMIT_MSG =~ ^fix ]]; then
+          elif [[ $FIRST_LINE =~ ^fix ]]; then
             CATEGORY="Fixed"
-          elif [[ $COMMIT_MSG =~ ^perf ]]; then
+          elif [[ $FIRST_LINE =~ ^perf ]]; then
             CATEGORY="Changed"
           else
             CATEGORY="Changed"
           fi
-
-          # Extract commit message (first line only)
-          FIRST_LINE=$(echo "$COMMIT_MSG" | head -n 1)
 
           # Create new changelog entry
           NEW_ENTRY="## [$NEW_VERSION] - $DATE\n\n### $CATEGORY\n- $FIRST_LINE (${SHORT_HASH})\n\n---\n"
@@ -157,7 +165,11 @@ jobs:
         if: steps.bump_type.outputs.type != 'none'
         run: |
           NEW_VERSION="${{ steps.new_version.outputs.version }}"
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          # Get commit message safely using heredoc
+          COMMIT_MSG=$(cat <<'EOF'
+          ${{ github.event.head_commit.message }}
+          EOF
+          )
           FIRST_LINE=$(echo "$COMMIT_MSG" | head -n 1)
 
           git tag -a "v$NEW_VERSION" -m "Version $NEW_VERSION
